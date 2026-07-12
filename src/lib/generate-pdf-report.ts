@@ -222,6 +222,49 @@ export async function generatePdfReport(data: ResumeData): Promise<void> {
     }
   }
 
+  // --- detailed report sections (paid) -------------------------------------
+  if (data.jd_match) {
+    heading("Job Description Match");
+    ensure(10);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    setColor(scoreColor(data.jd_match.match_score));
+    doc.text(`${data.jd_match.match_score}% match`, MARGIN, y + 4);
+    y += 9;
+    paragraph(data.jd_match.summary);
+    if (data.jd_match.title_alignment) {
+      labelValue("Title fit", data.jd_match.title_alignment);
+      y += 1;
+    }
+    if (data.jd_match.matched_keywords?.length) {
+      labelValue("Matched", data.jd_match.matched_keywords.join(", "));
+      y += 1;
+    }
+    if (data.jd_match.missing_keywords?.length) {
+      labelValue("Missing", data.jd_match.missing_keywords.join(", "));
+    }
+  }
+
+  if (data.bullet_rewrites?.length) {
+    heading("AI Bullet Rewrites");
+    for (const item of data.bullet_rewrites) {
+      paragraph(`Before: ${item.original}`, { color: COLORS.muted });
+      paragraph(`After:  ${item.improved}`);
+      if (item.reason) paragraph(`Why: ${item.reason}`, { size: 9.5, color: COLORS.muted });
+      y += 2;
+    }
+  }
+
+  if (data.parse_preview) {
+    heading("ATS Parse Preview");
+    paragraph(
+      "This is the plain text an ATS is likely to extract from your resume:",
+      { size: 9.5, color: COLORS.muted }
+    );
+    y += 1;
+    paragraph(data.parse_preview, { size: 9.5 });
+  }
+
   // --- footer on every page ------------------------------------------------
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {

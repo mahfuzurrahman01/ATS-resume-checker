@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { FileUpload } from "@/components/FileUpload";
 import { ResultsDisplay } from "@/components/ResultsDisplay";
 import { ProSuggestions } from "@/components/ProSuggestions";
+import { DetailedReport } from "@/components/DetailedReport";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { ResumeData } from "@/lib/gemini-service";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [results, setResults] = useState<ResumeData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastFile, setLastFile] = useState<File | null>(null);
 
   // Refs for GSAP animations
   const headerRef = useRef<HTMLDivElement>(null);
@@ -80,14 +82,20 @@ export default function Home() {
     }
   }, [results]);
 
-  const handleFileSelect = async (file: File) => {
+  const analyze = async (
+    file: File,
+    mode: "basic" | "detailed" = "basic",
+    jobDescription?: string
+  ) => {
     setIsProcessing(true);
     setError(null);
-    setResults(null);
+    if (mode === "basic") setResults(null);
 
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("mode", mode);
+      if (jobDescription) formData.append("jobDescription", jobDescription);
 
       const response = await fetch("/api/process-resume", {
         method: "POST",
@@ -97,7 +105,10 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to process resume");
+        const err = new Error(data.error || "Failed to process resume");
+        // Surface the machine code so the UI can react (e.g. out of credits).
+        (err as Error & { code?: string }).code = data.code;
+        throw err;
       }
 
       if (data.success && data.data) {
@@ -114,9 +125,20 @@ export default function Home() {
     }
   };
 
+  const handleFileSelect = async (file: File) => {
+    setLastFile(file);
+    await analyze(file, "basic");
+  };
+
+  const handleGetDetailed = async (jobDescription?: string) => {
+    if (!lastFile) return;
+    await analyze(lastFile, "detailed", jobDescription);
+  };
+
   const handleReset = () => {
     setResults(null);
     setError(null);
+    setLastFile(null);
   };
 
   const handleDownloadReport = async () => {
@@ -293,6 +315,22 @@ export default function Home() {
 
                 {/* Pro Suggestions */}
                 <ProSuggestions data={results} />
+
+                {/* Inline error (e.g. out of credits on detailed request) */}
+                {error && (
+                  <div className="bg-red-900/20 border border-red-700/40 rounded-xl p-4 text-center">
+                    <p className="text-red-300 text-sm">{error}</p>
+                  </div>
+                )}
+
+                {/* Detailed Report — unlock CTA or paid results */}
+                {results.is_resume && (
+                  <DetailedReport
+                    data={results}
+                    isProcessing={isProcessing}
+                    onRequest={handleGetDetailed}
+                  />
+                )}
               </div>
             )}
           </div>

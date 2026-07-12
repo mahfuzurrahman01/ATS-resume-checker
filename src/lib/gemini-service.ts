@@ -16,6 +16,46 @@ function withTimeout<T>(
   ]);
 }
 
+/**
+ * Extra instructions appended for a paid "detailed report". Adds the ATS
+ * parse preview, bullet rewrites, and (when a JD is given) job-match analysis.
+ */
+function buildDetailedPrompt(jobDescription?: string): string {
+  const jd = jobDescription?.trim();
+  const jdBlock = jd
+    ? `
+        JOB DESCRIPTION MATCH (a job description WAS provided):
+        Compare the resume against this job description and add a "jd_match" object.
+        --- JOB DESCRIPTION START ---
+        ${jd.slice(0, 6000)}
+        --- JOB DESCRIPTION END ---
+        "jd_match": {
+          "match_score": 0-100 (how well this resume fits THIS job),
+          "matched_keywords": ["keywords from the JD found in the resume"],
+          "missing_keywords": ["important JD keywords missing from the resume"],
+          "title_alignment": "how well the candidate's title/level matches the role",
+          "summary": "2-3 sentence verdict on fit and the top gap to close"
+        }`
+    : `
+        No job description was provided, so OMIT the "jd_match" field entirely.`;
+
+  return `
+        DETAILED REPORT MODE (paid). In ADDITION to everything above, include:
+
+        1. "parse_preview": a plain-text rendering of the resume exactly as a
+           simple ATS parser would extract it (linear, no columns/tables/graphics).
+           This shows the user what the machine actually reads.
+
+        2. "bullet_rewrites": an array of up to 8 objects that take the WEAKEST
+           experience bullet points and rewrite them. Each item:
+           { "original": "...", "improved": "action verb + quantified result",
+             "reason": "why the rewrite is stronger for ATS and recruiters" }
+           Only include bullets that genuinely need improvement.
+        ${jdBlock}
+
+        Return all of these inside the SAME top-level JSON object.`;
+}
+
 export interface ResumeData {
   document_type: string;
   is_resume?: boolean;
@@ -74,6 +114,31 @@ export interface ResumeData {
       potential_score_increase: number;
     };
   };
+  // ----- detailed-report fields (paid) -----
+  /** Job-description match analysis, present only when a JD is provided. */
+  jd_match?: {
+    match_score: number; // 0-100 fit for the specific job
+    matched_keywords: string[];
+    missing_keywords: string[];
+    title_alignment: string; // how well the resume title fits the role
+    summary: string; // short verdict
+  };
+  /** Plain text an ATS is likely to extract from the resume. */
+  parse_preview?: string;
+  /** Rewritten experience bullets: weak -> action-verb + quantified. */
+  bullet_rewrites?: Array<{
+    original: string;
+    improved: string;
+    reason: string;
+  }>;
+}
+
+export type AnalysisMode = "basic" | "detailed";
+
+export interface AnalysisOptions {
+  mode?: AnalysisMode;
+  /** Optional job description to match the resume against (detailed mode). */
+  jobDescription?: string;
 }
 
 export interface ATSAnalysisResult {
@@ -100,12 +165,17 @@ export class GeminiService {
 
   async processResumeWithGemini(
     base64Data: string,
-    fileType: string
+    fileType: string,
+    options: AnalysisOptions = {}
   ): Promise<ATSAnalysisResult> {
     try {
+      const { mode = "basic", jobDescription } = options;
       const today = new Date();
       const currentYear = today.getFullYear();
       const currentMonth = today.getMonth() + 1; // getMonth() returns 0-11
+
+      const detailedSection =
+        mode === "detailed" ? buildDetailedPrompt(jobDescription) : "";
 
       const prompt = `
         FIRST: Determine if this document is actually a resume or CV. Look for:
@@ -277,6 +347,7 @@ export class GeminiService {
         - Prioritize suggestions based on their impact on ATS compatibility
         - Focus on practical, implementable changes
         - Consider industry best practices and current ATS requirements
+${detailedSection}
       `;
 
       const contents = [

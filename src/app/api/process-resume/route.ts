@@ -45,6 +45,10 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
+    const mode: "basic" | "detailed" =
+      formData.get("mode") === "detailed" ? "detailed" : "basic";
+    const jobDescription =
+      (formData.get("jobDescription") as string)?.trim() || undefined;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -76,37 +80,54 @@ export async function POST(request: NextRequest) {
 
     const fileHash = hashFile(buffer);
 
-    // Signed-in flow: serve cache, then enforce the daily free limit with a
-    // credit-spend fallback. This also shields the Gemini free-tier quota.
-    let creditSpent = false;
+    // Signed-in gating. Basic = free daily limit then credit fallback.
+    // Detailed = always 1 credit (or lifetime). Both shield Gemini quota.
     if (authOn && user) {
-      const cached = await getCachedScan(user.id, fileHash);
-      if (cached) {
-        return NextResponse.json({
-          success: true,
-          data: cached,
-          cached: true,
-          message: "Loaded your recent analysis for this file.",
-        });
-      }
+      if (mode === "basic") {
+        // Serve a cached basic result for the same file if we have one.
+        const cached = await getCachedScan(user.id, fileHash);
+        if (cached) {
+          return NextResponse.json({
+            success: true,
+            data: cached,
+            cached: true,
+            message: "Loaded your recent analysis for this file.",
+          });
+        }
 
-      const [todayCount, credits] = await Promise.all([
-        getTodayScanCount(user.id),
-        getUserCredits(user.id),
-      ]);
+        const [todayCount, credits] = await Promise.all([
+          getTodayScanCount(user.id),
+          getUserCredits(user.id),
+        ]);
 
-      if (todayCount >= FREE_DAILY_SCANS && !credits.isLifetime) {
-        // Over the free limit — a credit is required.
-        creditSpent = await spendCredit(user.id);
-        if (!creditSpent) {
-          return NextResponse.json(
-            {
-              error:
-                "You've used your free scans for today. Buy credits or upgrade to keep going.",
-              code: "OUT_OF_CREDITS",
-            },
-            { status: 402 }
-          );
+        if (todayCount >= FREE_DAILY_SCANS && !credits.isLifetime) {
+          const spent = await spendCredit(user.id);
+          if (!spent) {
+            return NextResponse.json(
+              {
+                error:
+                  "You've used your free scans for today. Buy credits or upgrade to keep going.",
+                code: "OUT_OF_CREDITS",
+              },
+              { status: 402 }
+            );
+          }
+        }
+      } else {
+        // Detailed report always costs a credit unless the user is lifetime.
+        const credits = await getUserCredits(user.id);
+        if (!credits.isLifetime) {
+          const spent = await spendCredit(user.id);
+          if (!spent) {
+            return NextResponse.json(
+              {
+                error:
+                  "A detailed report costs 1 credit. Buy credits or upgrade to unlock it.",
+                code: "OUT_OF_CREDITS",
+              },
+              { status: 402 }
+            );
+          }
         }
       }
     }
@@ -114,7 +135,8 @@ export async function POST(request: NextRequest) {
     const geminiService = new GeminiService();
     const result = await geminiService.processResumeWithGemini(
       buffer.toString("base64"),
-      file.type
+      file.type,
+      { mode, jobDescription }
     );
 
     if (!result.success) {
@@ -133,8 +155,8 @@ export async function POST(request: NextRequest) {
         score: result.data.ats_analysis?.score,
         fileHash,
         result: result.data,
-        isDetailed: false,
-        jdProvided: false,
+        isDetailed: mode === "detailed",
+        jdProvided: !!jobDescription,
       }).catch((e) => console.error("Failed to record scan:", e));
     }
 
