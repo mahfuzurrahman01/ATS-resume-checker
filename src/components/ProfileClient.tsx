@@ -24,6 +24,7 @@ import { DetailedReport } from "@/components/DetailedReport";
 import type { ResumeData } from "@/lib/gemini-service";
 import type { ScanRecord } from "@/lib/scans";
 import type { CurrentUser, UserCredits } from "@/lib/auth";
+import { looksLikeJobDescription } from "@/lib/utils";
 
 interface ProfileClientProps {
   user: CurrentUser;
@@ -47,13 +48,21 @@ export function ProfileClient({ user, credits, scans }: ProfileClientProps) {
 
   const runDetailed = async () => {
     if (!selected) return;
+    const trimmed = jd.trim();
+    if (trimmed) {
+      const check = looksLikeJobDescription(trimmed);
+      if (!check.ok) {
+        setError(check.reason ?? "Please paste a valid job description.");
+        return;
+      }
+    }
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/scans/${selected.id}/detailed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobDescription: jd.trim() || undefined }),
+        body: JSON.stringify({ jobDescription: trimmed || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to generate report");

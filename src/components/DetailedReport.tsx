@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ResumeData } from "@/lib/gemini-service";
+import { looksLikeJobDescription } from "@/lib/utils";
 
 interface DetailedReportProps {
   data: ResumeData;
@@ -32,6 +33,20 @@ export function DetailedReport({
   onRequest,
 }: DetailedReportProps) {
   const [jd, setJd] = useState("");
+  const [jdError, setJdError] = useState<string | null>(null);
+
+  const handleUnlock = () => {
+    const trimmed = jd.trim();
+    if (trimmed) {
+      const check = looksLikeJobDescription(trimmed);
+      if (!check.ok) {
+        setJdError(check.reason ?? "Please paste a valid job description.");
+        return;
+      }
+    }
+    setJdError(null);
+    onRequest(trimmed || undefined);
+  };
 
   const hasDetailed = !!(
     data.jd_match ||
@@ -69,17 +84,23 @@ export function DetailedReport({
             </label>
             <textarea
               value={jd}
-              onChange={(e) => setJd(e.target.value)}
+              onChange={(e) => {
+                setJd(e.target.value);
+                if (jdError) setJdError(null);
+              }}
               placeholder="Paste the job posting here to get a match score and missing keywords…"
               rows={5}
               disabled={isProcessing}
               className="w-full rounded-xl bg-gray-800/60 border border-gray-700/50 p-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-y"
             />
+            {jdError && (
+              <p className="mt-2 text-sm text-amber-400">{jdError}</p>
+            )}
           </div>
 
           <div className="flex flex-col items-center gap-2">
             <Button
-              onClick={() => onRequest(jd.trim() || undefined)}
+              onClick={handleUnlock}
               disabled={isProcessing}
               size="lg"
               className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
