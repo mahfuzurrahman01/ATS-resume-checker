@@ -2,8 +2,12 @@ import { createHash } from "crypto";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { ResumeData } from "@/lib/gemini-service";
 
-/** Free basic scans allowed per user per calendar day (UTC). */
-export const FREE_DAILY_SCANS = 3;
+/** Credit cost per action. */
+export const CREDIT_COST = { basic: 1, detailed: 2 } as const;
+
+/** Monthly free top-up: bring balance up to this if it falls below it. */
+export const MONTHLY_FREE_CREDITS = 3;
+const TOPUP_INTERVAL_MS = 30 * 24 * 3600 * 1000; // 30 days
 
 /** Re-serve a cached result if the same file was scanned within this window. */
 const CACHE_WINDOW_HOURS = 24;
@@ -164,11 +168,14 @@ export async function getScanById(
 }
 
 /**
- * Atomically spends one credit if the balance allows. Uses the service-role
- * client because credits have no client-writable RLS policy.
- * Returns true if a credit was deducted.
+ * Atomically spends `amount` credits if the balance allows. Uses the
+ * service-role client (credits have no client-writable RLS policy).
+ * Returns true if the credits were deducted.
  */
-export async function spendCredit(userId: string): Promise<boolean> {
+export async function spendCredits(
+  userId: string,
+  amount: number
+): Promise<boolean> {
   const svc = createServiceClient();
   const { data } = await svc
     .from("credits")
@@ -178,18 +185,24 @@ export async function spendCredit(userId: string): Promise<boolean> {
 
   if (!data) return false;
   if (data.is_lifetime) return true; // unlimited, nothing to deduct
-  if (data.balance <= 0) return false;
+  if (data.balance < amount) return false;
 
   const { error } = await svc
     .from("credits")
-    .update({ balance: data.balance - 1, updated_at: new Date().toISOString() })
+    .update({
+      balance: data.balance - amount,
+      updated_at: new Date().toISOString(),
+    })
     .eq("user_id", userId)
     .eq("balance", data.balance); // optimistic guard against races
   return !error;
 }
 
-/** Refunds one credit — used when analysis fails after a credit was spent. */
-export async function refundCredit(userId: string): Promise<void> {
+/** Refunds `amount` credits — used when analysis fails after spending. */
+export async function refundCredits(
+  userId: string,
+  amount: number
+): Promise<void> {
   const svc = createServiceClient();
   const { data } = await svc
     .from("credits")
@@ -199,6 +212,39 @@ export async function refundCredit(userId: string): Promise<void> {
   if (!data || data.is_lifetime) return; // nothing was deducted for lifetime
   await svc
     .from("credits")
-    .update({ balance: data.balance + 1, updated_at: new Date().toISOString() })
+    .update({
+      balance: data.balance + amount,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId);
+}
+
+/**
+ * Lazy monthly free top-up. If at least 30 days passed since the last top-up
+ * and the balance is below MONTHLY_FREE_CREDITS, tops it up. Non-stacking:
+ * users who still have unused free credits get nothing new. No-op for lifetime.
+ */
+export async function ensureMonthlyTopUp(userId: string): Promise<void> {
+  const svc = createServiceClient();
+  const { data } = await svc
+    .from("credits")
+    .select("balance, is_lifetime, last_free_topup_at")
+    .eq("user_id", userId)
+    .single();
+  if (!data || data.is_lifetime) return;
+
+  const last = data.last_free_topup_at
+    ? new Date(data.last_free_topup_at).getTime()
+    : 0;
+  const due = Date.now() - last >= TOPUP_INTERVAL_MS;
+  if (!due || data.balance >= MONTHLY_FREE_CREDITS) return;
+
+  await svc
+    .from("credits")
+    .update({
+      balance: MONTHLY_FREE_CREDITS,
+      last_free_topup_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
     .eq("user_id", userId);
 }

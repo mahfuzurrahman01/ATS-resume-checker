@@ -100,7 +100,7 @@ export function ProfileClient({ user, credits, scans }: ProfileClientProps) {
             </CardTitle>
             <CardDescription className="text-gray-300">
               Paste a job description to get a fresh match score, missing
-              keywords, and bullet rewrites. Costs 1 credit
+              keywords, and bullet rewrites. Costs 2 credits
               {credits.isLifetime ? " (free for lifetime members)" : ""}.
             </CardDescription>
           </CardHeader>
@@ -120,7 +120,7 @@ export function ProfileClient({ user, credits, scans }: ProfileClientProps) {
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
             >
               <Sparkles className="h-4 w-4 mr-2" />
-              {loading ? "Analyzing…" : "Generate Detailed Report (1 credit)"}
+              {loading ? "Analyzing…" : "Generate Detailed Report (2 credits)"}
             </Button>
           </CardContent>
         </Card>

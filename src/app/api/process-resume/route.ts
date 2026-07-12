@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GeminiService } from "@/lib/gemini-service";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { getCurrentUser, getUserCredits, isAuthConfigured } from "@/lib/auth";
+import { getCurrentUser, isAuthConfigured } from "@/lib/auth";
 import {
-  FREE_DAILY_SCANS,
+  CREDIT_COST,
+  ensureMonthlyTopUp,
   getCachedScan,
-  getTodayScanCount,
   hashFile,
   recordScan,
-  refundCredit,
-  spendCredit,
+  refundCredits,
+  spendCredits,
   uploadResumePdf,
 } from "@/lib/scans";
 
@@ -86,13 +86,16 @@ export async function POST(request: NextRequest) {
 
     const fileHash = hashFile(buffer);
 
-    // Signed-in gating. Basic = free daily limit then credit fallback.
-    // Detailed = always 1 credit (or lifetime). Both shield Gemini quota.
-    // Track whether a credit was spent so we can refund it if analysis fails.
-    let creditSpent = false;
+    // Signed-in gating. Every action costs credits: basic = 1, detailed = 2.
+    // `cost` is tracked so it can be refunded if the analysis fails.
+    const cost = mode === "detailed" ? CREDIT_COST.detailed : CREDIT_COST.basic;
+    let creditsCharged = 0;
     if (authOn && user) {
+      // Apply any due monthly free top-up before checking the balance.
+      await ensureMonthlyTopUp(user.id);
+
+      // Serve a cached basic result for the same file at no charge.
       if (mode === "basic") {
-        // Serve a cached basic result for the same file if we have one.
         const cached = await getCachedScan(user.id, fileHash);
         if (cached) {
           return NextResponse.json({
@@ -102,42 +105,21 @@ export async function POST(request: NextRequest) {
             message: "Loaded your recent analysis for this file.",
           });
         }
-
-        const [todayCount, credits] = await Promise.all([
-          getTodayScanCount(user.id),
-          getUserCredits(user.id),
-        ]);
-
-        if (todayCount >= FREE_DAILY_SCANS && !credits.isLifetime) {
-          creditSpent = await spendCredit(user.id);
-          if (!creditSpent) {
-            return NextResponse.json(
-              {
-                error:
-                  "You've used your free scans for today. Buy credits or upgrade to keep going.",
-                code: "OUT_OF_CREDITS",
-              },
-              { status: 402 }
-            );
-          }
-        }
-      } else {
-        // Detailed report always costs a credit unless the user is lifetime.
-        const credits = await getUserCredits(user.id);
-        if (!credits.isLifetime) {
-          creditSpent = await spendCredit(user.id);
-          if (!creditSpent) {
-            return NextResponse.json(
-              {
-                error:
-                  "A detailed report costs 1 credit. Buy credits or upgrade to unlock it.",
-                code: "OUT_OF_CREDITS",
-              },
-              { status: 402 }
-            );
-          }
-        }
       }
+
+      const spent = await spendCredits(user.id, cost);
+      if (!spent) {
+        return NextResponse.json(
+          {
+            error: `This ${
+              mode === "detailed" ? "detailed report" : "scan"
+            } needs ${cost} credit${cost > 1 ? "s" : ""}. You're out of credits — buy more to keep going.`,
+            code: "OUT_OF_CREDITS",
+          },
+          { status: 402 }
+        );
+      }
+      creditsCharged = cost;
     }
 
     const geminiService = new GeminiService();
@@ -148,10 +130,10 @@ export async function POST(request: NextRequest) {
     );
 
     if (!result.success) {
-      // Refund the credit — the user paid but got no result.
-      if (creditSpent && user) {
-        await refundCredit(user.id).catch((e) =>
-          console.error("Failed to refund credit:", e)
+      // Refund — the user paid but got no result.
+      if (creditsCharged > 0 && user) {
+        await refundCredits(user.id, creditsCharged).catch((e) =>
+          console.error("Failed to refund credits:", e)
         );
       }
       return NextResponse.json(
@@ -160,11 +142,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Invalid job description — refund the credit and ask the user to fix it.
+    // Invalid job description — refund and ask the user to fix it.
     if (mode === "detailed" && result.data?.jd_invalid) {
-      if (creditSpent && user) {
-        await refundCredit(user.id).catch((e) =>
-          console.error("Failed to refund credit:", e)
+      if (creditsCharged > 0 && user) {
+        await refundCredits(user.id, creditsCharged).catch((e) =>
+          console.error("Failed to refund credits:", e)
         );
       }
       const base =

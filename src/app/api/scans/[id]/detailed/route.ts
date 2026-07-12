@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GeminiService } from "@/lib/gemini-service";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { getCurrentUser, getUserCredits, isAuthConfigured } from "@/lib/auth";
+import { getCurrentUser, isAuthConfigured } from "@/lib/auth";
 import {
+  CREDIT_COST,
   downloadResumePdf,
+  ensureMonthlyTopUp,
   getScanById,
   recordScan,
-  refundCredit,
-  spendCredit,
+  refundCredits,
+  spendCredits,
 } from "@/lib/scans";
 
 export const maxDuration = 120;
@@ -76,21 +78,18 @@ export async function POST(
       );
     }
 
-    // Charge a credit (unless lifetime).
-    let creditSpent = false;
-    const credits = await getUserCredits(user.id);
-    if (!credits.isLifetime) {
-      creditSpent = await spendCredit(user.id);
-      if (!creditSpent) {
-        return NextResponse.json(
-          {
-            error:
-              "A detailed report costs 1 credit. Buy credits or upgrade to unlock it.",
-            code: "OUT_OF_CREDITS",
-          },
-          { status: 402 }
-        );
-      }
+    // A detailed report costs 2 credits (unless lifetime). Top up first.
+    await ensureMonthlyTopUp(user.id);
+    const cost = CREDIT_COST.detailed;
+    const creditsCharged = (await spendCredits(user.id, cost)) ? cost : -1;
+    if (creditsCharged < 0) {
+      return NextResponse.json(
+        {
+          error: `A detailed report needs ${cost} credits. You're out of credits — buy more to keep going.`,
+          code: "OUT_OF_CREDITS",
+        },
+        { status: 402 }
+      );
     }
 
     const gemini = new GeminiService();
@@ -101,11 +100,9 @@ export async function POST(
     );
 
     if (!result.success || !result.data) {
-      if (creditSpent) {
-        await refundCredit(user.id).catch((e) =>
-          console.error("Failed to refund credit:", e)
-        );
-      }
+      await refundCredits(user.id, creditsCharged).catch((e) =>
+        console.error("Failed to refund credits:", e)
+      );
       return NextResponse.json(
         { error: result.error || "Failed to generate report" },
         { status: 502 }
@@ -114,11 +111,9 @@ export async function POST(
 
     // Invalid job description — refund and ask the user to fix it.
     if (result.data.jd_invalid) {
-      if (creditSpent) {
-        await refundCredit(user.id).catch((e) =>
-          console.error("Failed to refund credit:", e)
-        );
-      }
+      await refundCredits(user.id, creditsCharged).catch((e) =>
+        console.error("Failed to refund credits:", e)
+      );
       const base =
         result.data.jd_invalid_message ||
         "The text you provided doesn't look like a job description. Please paste a real job posting and try again.";

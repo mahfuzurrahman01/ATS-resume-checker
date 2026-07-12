@@ -108,7 +108,7 @@ export function DetailedReport({
               <Crown className="h-4 w-4 mr-2" />
               {isProcessing
                 ? "Analyzing…"
-                : "Unlock Detailed Report (1 credit)"}
+                : "Unlock Detailed Report (2 credits)"}
             </Button>
             <p className="text-xs text-gray-500">
               Lifetime members: unlimited detailed reports.
