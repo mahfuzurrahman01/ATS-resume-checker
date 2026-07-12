@@ -19,6 +19,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { ResumeData } from "@/lib/gemini-service";
+import { safeUrl, displayUrl } from "@/lib/utils";
 
 interface ResultsDisplayProps {
   data: ResumeData;
@@ -134,29 +135,34 @@ export function ResultsDisplay({ data, onReset }: ResultsDisplayProps) {
                   {data?.header?.location}
                 </p>
               </div>
-              {(data?.header?.linkedin || data?.header?.website) && (
-                <div>
-                  {data?.header?.linkedin && (
-                    <p className="text-sm text-blue-400">
+              {(safeUrl(data?.header?.linkedin) ||
+                safeUrl(data?.header?.website)) && (
+                <div className="space-y-1">
+                  {safeUrl(data?.header?.linkedin) && (
+                    <p className="text-sm">
+                      <span className="text-gray-400">LinkedIn: </span>
                       <a
-                        href={data?.header?.linkedin}
+                        href={safeUrl(data?.header?.linkedin)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="hover:text-blue-300 transition-colors"
+                        title={safeUrl(data?.header?.linkedin)}
+                        className="text-blue-400 hover:text-blue-300 transition-colors break-all"
                       >
-                        LinkedIn Profile
+                        {displayUrl(data?.header?.linkedin)}
                       </a>
                     </p>
                   )}
-                  {data?.header?.website && (
-                    <p className="text-sm text-blue-400">
+                  {safeUrl(data?.header?.website) && (
+                    <p className="text-sm">
+                      <span className="text-gray-400">Website: </span>
                       <a
-                        href={data?.header?.website}
+                        href={safeUrl(data?.header?.website)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="hover:text-blue-300 transition-colors"
+                        title={safeUrl(data?.header?.website)}
+                        className="text-blue-400 hover:text-blue-300 transition-colors break-all"
                       >
-                        Personal Website
+                        {displayUrl(data?.header?.website)}
                       </a>
                     </p>
                   )}

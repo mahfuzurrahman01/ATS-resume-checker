@@ -4,20 +4,21 @@ A modern web application that analyzes resumes for ATS (Applicant Tracking Syste
 
 ## Features
 
-- **File Upload**: Support for PDF, DOC, and DOCX formats
+- **File Upload**: PDF files (validated by MIME type and magic bytes, max 10MB)
 - **AI-Powered Analysis**: Uses Google's Gemini AI for intelligent document processing
 - **ATS Compatibility Scoring**: Get a detailed 0-100 score
 - **Keyword Analysis**: Identify missing and found keywords
 - **Smart Recommendations**: Actionable suggestions for improvement
 - **Skills Extraction**: Automatic detection of technical and soft skills
 - **Contact Information Parsing**: Extract and validate contact details
-- **Print-Ready Reports**: Generate printable analysis reports
+- **Downloadable Reports**: Generate a PDF analysis report
+- **Rate Limiting**: Per-IP throttling on the analysis endpoint
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS
-- **AI Processing**: Google Gemini AI
-- **File Handling**: Multer for file uploads
+- **Frontend**: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS
+- **AI Processing**: Google Gemini AI (`@google/genai`)
+- **PDF Report**: html2canvas + jsPDF (lazy-loaded on demand)
 - **UI Components**: Custom components with Lucide React icons
 
 ## Prerequisites
@@ -31,8 +32,8 @@ A modern web application that analyzes resumes for ATS (Applicant Tracking Syste
 1. Create a `.env.local` file in the project root:
 ```bash
 # Google Gemini AI API Key
-# Get your API key from: https://makersuite.google.com/app/apikey
-NEXT_PUBLIC_GEMINI_API_KEY=your_gemini_api_key_here
+# Get your API key from: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 2. Replace `your_gemini_api_key_here` with your actual Gemini API key
@@ -52,12 +53,12 @@ npm install
 Create a `.env.local` file in the root directory:
 
 ```env
-NEXT_PUBLIC_GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 ### 3. Get Gemini AI API Key
 
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
 2. Create a new API key
 3. Copy the key to your `.env.local` file
 
@@ -165,9 +166,11 @@ Supported file types can be modified in:
 ## Security Considerations
 
 - File size is limited to 10MB
-- Only PDF, DOC, and DOCX files are accepted
+- Only PDF files are accepted, validated by both MIME type and magic bytes
 - Files are processed in memory and not stored
-- API key should be kept secure and not committed to version control
+- The analysis endpoint is rate limited per IP
+- Security headers (nosniff, X-Frame-Options, Referrer-Policy) are set globally
+- `GEMINI_API_KEY` is server-only and never shipped to the browser
 
 ## Performance
 

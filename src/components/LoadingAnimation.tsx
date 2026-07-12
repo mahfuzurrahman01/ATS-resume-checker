@@ -1,53 +1,46 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  Loader2,
-  FileText,
-  Search,
-  CheckCircle,
-  Sparkles,
-  Zap,
-} from "lucide-react";
+import { FileText, Search, CheckCircle, Sparkles, Zap } from "lucide-react";
 
 interface LoadingAnimationProps {
   isProcessing: boolean;
 }
 
+const stages = [
+  {
+    icon: <FileText className="h-12 w-12 text-blue-500" />,
+    title: "Uploading Resume",
+    description: "Processing your document securely...",
+    duration: 2000,
+    color: "blue",
+  },
+  {
+    icon: <Search className="h-12 w-12 text-green-500" />,
+    title: "Extracting Data",
+    description: "Analyzing resume content and structure...",
+    duration: 3000,
+    color: "green",
+  },
+  {
+    icon: <Sparkles className="h-12 w-12 text-purple-500" />,
+    title: "AI Analysis",
+    description: "Running advanced ATS compatibility analysis...",
+    duration: 2500,
+    color: "purple",
+  },
+  {
+    icon: <CheckCircle className="h-12 w-12 text-emerald-500" />,
+    title: "Almost There",
+    description: "Finalizing your comprehensive report...",
+    duration: 1500,
+    color: "emerald",
+  },
+];
+
 export function LoadingAnimation({ isProcessing }: LoadingAnimationProps) {
   const [currentStage, setCurrentStage] = useState(0);
   const [progress, setProgress] = useState(0);
-
-  const stages = [
-    {
-      icon: <FileText className="h-12 w-12 text-blue-500" />,
-      title: "Uploading Resume",
-      description: "Processing your document securely...",
-      duration: 2000,
-      color: "blue",
-    },
-    {
-      icon: <Search className="h-12 w-12 text-green-500" />,
-      title: "Extracting Data",
-      description: "Analyzing resume content and structure...",
-      duration: 3000,
-      color: "green",
-    },
-    {
-      icon: <Sparkles className="h-12 w-12 text-purple-500" />,
-      title: "AI Analysis",
-      description: "Running advanced ATS compatibility analysis...",
-      duration: 2500,
-      color: "purple",
-    },
-    {
-      icon: <CheckCircle className="h-12 w-12 text-emerald-500" />,
-      title: "Almost There",
-      description: "Finalizing your comprehensive report...",
-      duration: 1500,
-      color: "emerald",
-    },
-  ];
 
   useEffect(() => {
     if (!isProcessing) {

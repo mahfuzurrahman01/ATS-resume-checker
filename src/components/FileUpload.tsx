@@ -3,13 +3,7 @@
 import React, { useState, useCallback } from "react";
 import { Upload, FileText, CheckCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -19,6 +13,7 @@ interface FileUploadProps {
 export function FileUpload({ onFileSelect, isProcessing }: FileUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -30,6 +25,20 @@ export function FileUpload({ onFileSelect, isProcessing }: FileUploadProps) {
     setIsDragOver(false);
   }, []);
 
+  const handleFile = useCallback(
+    (file: File) => {
+      if (!isValidFileType(file)) {
+        setFileError("Unsupported file. Please upload a PDF.");
+        setSelectedFile(null);
+        return;
+      }
+      setFileError(null);
+      setSelectedFile(file);
+      onFileSelect(file);
+    },
+    [onFileSelect]
+  );
+
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -37,37 +46,25 @@ export function FileUpload({ onFileSelect, isProcessing }: FileUploadProps) {
 
       const files = Array.from(e.dataTransfer.files);
       if (files.length > 0) {
-        const file = files[0];
-        if (isValidFileType(file)) {
-          setSelectedFile(file);
-          onFileSelect(file);
-        }
+        handleFile(files[0]);
       }
     },
-    [onFileSelect]
+    [handleFile]
   );
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files || []);
       if (files.length > 0) {
-        const file = files[0];
-        if (isValidFileType(file)) {
-          setSelectedFile(file);
-          onFileSelect(file);
-        }
+        handleFile(files[0]);
       }
     },
-    [onFileSelect]
+    [handleFile]
   );
 
   const isValidFileType = (file: File): boolean => {
-    const validTypes = [
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ];
-    return validTypes.includes(file.type);
+    // Gemini reliably parses PDF only, so PDF is the single supported format.
+    return file.type === "application/pdf";
   };
 
   const getFileIcon = () => {
@@ -165,7 +162,7 @@ export function FileUpload({ onFileSelect, isProcessing }: FileUploadProps) {
                 <input
                   id="file-input"
                   type="file"
-                  accept=".pdf,.doc,.docx"
+                  accept="application/pdf,.pdf"
                   onChange={handleFileSelect}
                   className="hidden"
                   disabled={isProcessing}
@@ -176,20 +173,16 @@ export function FileUpload({ onFileSelect, isProcessing }: FileUploadProps) {
               <div className="flex items-center justify-center space-x-4 text-sm text-gray-300">
                 <div className="flex items-center space-x-1">
                   <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                  <span>PDF</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span>DOC</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>DOCX</span>
+                  <span>PDF only &middot; max 10MB</span>
                 </div>
               </div>
             </div>
           )}
         </div>
+
+        {fileError && (
+          <p className="mt-4 text-center text-sm text-red-400">{fileError}</p>
+        )}
 
         {selectedFile && !isProcessing && (
           <div className="mt-6 flex justify-center">

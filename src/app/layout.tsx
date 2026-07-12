@@ -11,6 +11,25 @@ export const metadata: Metadata = {
   title: "ATS Resume Checker - AI-Powered Resume Optimization",
   description:
     "Get instant AI-powered feedback on your resume's ATS compatibility. Optimize your resume to pass through ATS filters.",
+  keywords: [
+    "ATS resume checker",
+    "resume optimization",
+    "applicant tracking system",
+    "AI resume analysis",
+  ],
+  openGraph: {
+    title: "ATS Resume Checker - AI-Powered Resume Optimization",
+    description:
+      "Get instant AI-powered feedback on your resume's ATS compatibility.",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ATS Resume Checker",
+    description:
+      "Get instant AI-powered feedback on your resume's ATS compatibility.",
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({

@@ -1,5 +1,21 @@
 import { GoogleGenAI } from "@google/genai";
 
+const GEMINI_TIMEOUT_MS = 45_000;
+
+/** Rejects if the given promise does not settle within `ms`. */
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  message: string
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(message)), ms)
+    ),
+  ]);
+}
+
 export interface ResumeData {
   document_type: string;
   is_resume?: boolean;
@@ -71,17 +87,20 @@ export class GeminiService {
   private ai: GoogleGenAI;
 
   constructor() {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    // Server-only key. NEXT_PUBLIC_ prefix kept as a fallback for backward
+    // compatibility with existing .env files, but GEMINI_API_KEY is preferred
+    // so the key is never inlined into the client bundle.
+    const apiKey =
+      process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error("NEXT_PUBLIC_GEMINI_API_KEY is not set");
+      throw new Error("GEMINI_API_KEY is not set");
     }
     this.ai = new GoogleGenAI({ apiKey });
   }
 
   async processResumeWithGemini(
     base64Data: string,
-    fileType: string,
-    fileName: string
+    fileType: string
   ): Promise<ATSAnalysisResult> {
     try {
       const today = new Date();
@@ -271,10 +290,15 @@ export class GeminiService {
         },
       ];
 
-      const response = await this.ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: contents,
-      });
+      const response = await withTimeout(
+        this.ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: contents,
+          config: { responseMimeType: "application/json" },
+        }),
+        GEMINI_TIMEOUT_MS,
+        "Resume analysis timed out. Please try again."
+      );
 
       const responseText = response.text || "";
       let structuredData: ResumeData;
@@ -286,7 +310,7 @@ export class GeminiService {
         } else {
           throw new Error("No valid JSON found");
         }
-      } catch (parseError) {
+      } catch {
         // Fallback parsing with default pro suggestions
         structuredData = {
           document_type: "resume",
@@ -356,109 +380,6 @@ export class GeminiService {
         error:
           error instanceof Error ? error.message : "Unknown error occurred",
         raw_text: "",
-      };
-    }
-  }
-
-  async analyzeATSCompatibility(
-    resumeData: ResumeData,
-    jobKeywords: string[] = []
-  ): Promise<ATSAnalysisResult> {
-    try {
-      const prompt = `
-        You are an expert in Applicant Tracking Systems (ATS) and resume parsing.
-        
-        Your task is to analyze the given resume or CV data for ATS compatibility and provide a detailed evaluation.
-        
-        ====================
-        Resume Data:
-        ${JSON.stringify(resumeData, null, 2)}
-        ====================
-        
-        Job Description Keywords (if provided): ${jobKeywords.join(", ")}
-        
-        Please perform a comprehensive analysis and return the following in JSON format under a key called "ats_analysis":
-        
-        1. **ATS Compatibility Score** (0-100): A numeric score based on how well the resume follows ATS best practices (formatting, structure, keyword usage, section naming, etc.).
-        
-        2. **Structural Completeness Check**:
-           - Confirm presence of key sections:
-             - Contact Information
-             - Professional Summary or Objective
-             - Work Experience
-             - Skills
-             - Education
-             - Certifications (if available)
-           - Note if any major section is missing.
-        
-        3. **Formatting Issues** (if any):
-           - Usage of tables, columns, graphics, images, or non-standard fonts
-           - File type concerns (PDF vs DOCX)
-           - Unscannable content (e.g., in headers/footers)
-        
-        4. **Keyword Matching Analysis**:
-           - Highlight which job-related keywords are present
-           - Identify important missing keywords
-           - Provide a match percentage based on provided job keywords
-        
-        5. **Detected Issues**:
-           - List all potential ATS-blocking or ATS-confusing elements
-        
-        6. **Actionable Recommendations**:
-           - Give specific and practical suggestions to improve ATS compatibility
-           - Tailor suggestions based on detected formatting or content issues
-           - Highlight enhancements in keyword optimization
-        
-        7. **Summary Verdict**:
-           - Clear final judgment: "ATS-Friendly", "Moderately ATS-Compatible", or "Not ATS-Compatible"
-           - Brief reasoning based on the overall analysis
-        
-        Make sure your analysis is accurate, concise, and informative. Return only the JSON with the "ats_analysis" section updated accordingly.
-        `;
-
-      const response = await this.ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [{ text: prompt }],
-      });
-
-      console.log("Response: ", response);
-
-      let enhancedData: ResumeData;
-      try {
-        const responseText = response.text || "";
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          enhancedData = JSON.parse(jsonMatch[0]);
-        } else {
-          // Fallback: enhance existing data
-          enhancedData = {
-            ...resumeData,
-            ats_analysis: {
-              ...resumeData.ats_analysis,
-              score: Math.min(100, (resumeData.ats_analysis?.score || 50) + 5),
-              recommendations: [
-                ...(resumeData.ats_analysis?.recommendations || []),
-                "Consider tailoring keywords to specific job postings",
-              ],
-              issues: resumeData.ats_analysis?.issues || [],
-              keyword_matches: resumeData.ats_analysis?.keyword_matches || [],
-              missing_keywords: resumeData.ats_analysis?.missing_keywords || [],
-            },
-          };
-        }
-      } catch (parseError) {
-        enhancedData = resumeData;
-      }
-
-      return {
-        success: true,
-        data: enhancedData,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Unknown error occurred",
       };
     }
   }
