@@ -112,6 +112,22 @@ export async function POST(
       );
     }
 
+    // Invalid job description — refund and ask the user to fix it.
+    if (result.data.jd_invalid) {
+      if (creditSpent) {
+        await refundCredit(user.id).catch((e) =>
+          console.error("Failed to refund credit:", e)
+        );
+      }
+      const base =
+        result.data.jd_invalid_message ||
+        "The text you provided doesn't look like a job description. Please paste a real job posting and try again.";
+      return NextResponse.json(
+        { error: `${base} You were not charged.`, code: "INVALID_JD" },
+        { status: 422 }
+      );
+    }
+
     // Save as a new detailed scan tied to the same stored file.
     const resultData = result.data;
     recordScan(user.id, {

@@ -160,6 +160,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Invalid job description — refund the credit and ask the user to fix it.
+    if (mode === "detailed" && result.data?.jd_invalid) {
+      if (creditSpent && user) {
+        await refundCredit(user.id).catch((e) =>
+          console.error("Failed to refund credit:", e)
+        );
+      }
+      const base =
+        result.data.jd_invalid_message ||
+        "The text you provided doesn't look like a job description. Please paste a real job posting and try again.";
+      return NextResponse.json(
+        { error: `${base} You were not charged.`, code: "INVALID_JD" },
+        { status: 422 }
+      );
+    }
+
     // Persist to history + store the PDF so it can be re-analyzed later
     // (best-effort; never block the response on it).
     if (authOn && user && result.data) {

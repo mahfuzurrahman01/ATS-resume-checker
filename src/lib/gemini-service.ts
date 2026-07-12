@@ -27,11 +27,20 @@ function buildDetailedPrompt(jobDescription?: string): string {
   const jd = jobDescription?.trim();
   const jdBlock = jd
     ? `
-        JOB DESCRIPTION MATCH (a job description WAS provided):
-        Compare the resume against this job description and add a "jd_match" object.
-        --- JOB DESCRIPTION START ---
+        JOB DESCRIPTION MATCH (text WAS provided by the user):
+        --- PROVIDED TEXT START ---
         ${jd.slice(0, 6000)}
-        --- JOB DESCRIPTION END ---
+        --- PROVIDED TEXT END ---
+
+        FIRST validate this text. A real job description mentions a role/title,
+        responsibilities, requirements, or qualifications. If the text is clearly
+        NOT a job posting (e.g. source code, SQL, a resume, random notes, lorem
+        ipsum, or gibberish), then set:
+          "jd_invalid": true,
+          "jd_invalid_message": "The text you provided doesn't look like a job description. Please paste a real job posting and try again."
+        and DO NOT fabricate a "jd_match" object. Omit jd_match entirely.
+
+        Otherwise (it IS a job description), set "jd_invalid": false and add:
         "jd_match": {
           "match_score": 0-100 (how well this resume fits THIS job),
           "matched_keywords": ["keywords from the JD found in the resume"],
@@ -118,6 +127,9 @@ export interface ResumeData {
     };
   };
   // ----- detailed-report fields (paid) -----
+  /** Set when the provided "job description" is clearly not a job posting. */
+  jd_invalid?: boolean;
+  jd_invalid_message?: string;
   /** Job-description match analysis, present only when a JD is provided. */
   jd_match?: {
     match_score: number; // 0-100 fit for the specific job
