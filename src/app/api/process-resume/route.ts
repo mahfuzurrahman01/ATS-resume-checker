@@ -8,12 +8,18 @@ import {
   getTodayScanCount,
   hashFile,
   recordScan,
+  refundCredit,
   spendCredit,
+  uploadResumePdf,
 } from "@/lib/scans";
 
 // Gemini's inlineData reliably parses PDF only, so we accept PDF exclusively.
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46]; // "%PDF"
+
+// A detailed report is a long Gemini generation; allow the function to run
+// long enough for it (Vercel caps at 60s on Hobby, up to 300s on Pro).
+export const maxDuration = 120;
 
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -82,6 +88,8 @@ export async function POST(request: NextRequest) {
 
     // Signed-in gating. Basic = free daily limit then credit fallback.
     // Detailed = always 1 credit (or lifetime). Both shield Gemini quota.
+    // Track whether a credit was spent so we can refund it if analysis fails.
+    let creditSpent = false;
     if (authOn && user) {
       if (mode === "basic") {
         // Serve a cached basic result for the same file if we have one.
@@ -101,8 +109,8 @@ export async function POST(request: NextRequest) {
         ]);
 
         if (todayCount >= FREE_DAILY_SCANS && !credits.isLifetime) {
-          const spent = await spendCredit(user.id);
-          if (!spent) {
+          creditSpent = await spendCredit(user.id);
+          if (!creditSpent) {
             return NextResponse.json(
               {
                 error:
@@ -117,8 +125,8 @@ export async function POST(request: NextRequest) {
         // Detailed report always costs a credit unless the user is lifetime.
         const credits = await getUserCredits(user.id);
         if (!credits.isLifetime) {
-          const spent = await spendCredit(user.id);
-          if (!spent) {
+          creditSpent = await spendCredit(user.id);
+          if (!creditSpent) {
             return NextResponse.json(
               {
                 error:
@@ -140,24 +148,34 @@ export async function POST(request: NextRequest) {
     );
 
     if (!result.success) {
-      // Note: no reliable refund path for a spent credit here; spending only
-      // happens after the quota check, and Gemini failures are rare. Logged
-      // for follow-up if it becomes an issue.
+      // Refund the credit — the user paid but got no result.
+      if (creditSpent && user) {
+        await refundCredit(user.id).catch((e) =>
+          console.error("Failed to refund credit:", e)
+        );
+      }
       return NextResponse.json(
         { error: result.error || "Failed to process resume" },
         { status: 502 }
       );
     }
 
-    // Persist to history (best-effort; never block the response on it).
+    // Persist to history + store the PDF so it can be re-analyzed later
+    // (best-effort; never block the response on it).
     if (authOn && user && result.data) {
-      recordScan(user.id, {
-        score: result.data.ats_analysis?.score,
-        fileHash,
-        result: result.data,
-        isDetailed: mode === "detailed",
-        jdProvided: !!jobDescription,
-      }).catch((e) => console.error("Failed to record scan:", e));
+      const resultData = result.data;
+      (async () => {
+        const storagePath = await uploadResumePdf(user.id, fileHash, buffer);
+        await recordScan(user.id, {
+          score: resultData.ats_analysis?.score,
+          fileHash,
+          result: resultData,
+          isDetailed: mode === "detailed",
+          jdProvided: !!jobDescription,
+          storagePath,
+          fileName: file.name,
+        });
+      })().catch((e) => console.error("Failed to record scan:", e));
     }
 
     return NextResponse.json({

@@ -1,6 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 
-const GEMINI_TIMEOUT_MS = 45_000;
+// Detailed reports are a much larger generation (parse preview + rewrites +
+// JD match), so they get a longer budget than a basic scan.
+const BASIC_TIMEOUT_MS = 60_000;
+const DETAILED_TIMEOUT_MS = 110_000;
 
 /** Rejects if the given promise does not settle within `ms`. */
 function withTimeout<T>(
@@ -367,7 +370,7 @@ ${detailedSection}
           contents: contents,
           config: { responseMimeType: "application/json" },
         }),
-        GEMINI_TIMEOUT_MS,
+        mode === "detailed" ? DETAILED_TIMEOUT_MS : BASIC_TIMEOUT_MS,
         "Resume analysis timed out. Please try again."
       );
 

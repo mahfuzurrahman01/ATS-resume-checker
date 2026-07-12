@@ -27,6 +27,14 @@ export async function Navbar() {
 
           {/* Right side */}
           <div className="flex items-center space-x-3">
+            {user && (
+              <Link
+                href="/profile"
+                className="hidden sm:inline text-sm text-gray-300 hover:text-white transition-colors"
+              >
+                My Resumes
+              </Link>
+            )}
             {user && credits && (
               <span className="hidden sm:inline-flex items-center space-x-1.5 rounded-full bg-gray-900/60 border border-gray-700/40 px-3 py-1.5 text-sm text-gray-200">
                 {credits.isLifetime ? (
