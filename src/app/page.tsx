@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Upload, Download, Github, Code, Sparkles } from "lucide-react";
 import { gsap } from "gsap";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { SignInGate } from "@/components/SignInGate";
 
 export default function Home() {
   const router = useRouter();
@@ -18,6 +20,24 @@ export default function Home() {
   const [results, setResults] = useState<ResumeData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastFile, setLastFile] = useState<File | null>(null);
+  const [authStatus, setAuthStatus] = useState<"loading" | "in" | "out">(
+    "loading"
+  );
+
+  // Resolve auth state on the client and keep it in sync. This only controls
+  // what the UI shows — the API enforces auth on the server regardless.
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth
+      .getUser()
+      .then(({ data }) => setAuthStatus(data.user ? "in" : "out"));
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) =>
+      setAuthStatus(session?.user ? "in" : "out")
+    );
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Refs for GSAP animations
   const headerRef = useRef<HTMLDivElement>(null);
@@ -28,9 +48,9 @@ export default function Home() {
   const uploadRef = useRef<HTMLDivElement>(null);
   const statsRef = useRef<HTMLDivElement>(null);
 
-  // GSAP animations on mount
+  // GSAP animations on mount (only when the signed-in app UI is shown)
   useEffect(() => {
-    if (!results) {
+    if (authStatus === "in" && !results) {
       const tl = gsap.timeline({ delay: 0.2 });
 
       // Animate banner
@@ -80,7 +100,7 @@ export default function Home() {
           "-=0.4"
         );
     }
-  }, [results]);
+  }, [results, authStatus]);
 
   const analyze = async (
     file: File,
@@ -151,6 +171,37 @@ export default function Home() {
       alert("Failed to generate PDF. Please try again.");
     }
   };
+
+  // While resolving auth, show a minimal placeholder to avoid UI flash.
+  if (authStatus === "loading") {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Logged out: no uploader at all — require sign-in first.
+  if (authStatus === "out") {
+    return (
+      <div className="container mx-auto px-4 py-16 max-w-4xl">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl sm:text-5xl font-bold mb-5">
+            <span className="text-white">Craft Perfect</span>
+            <br />
+            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Resumes for ATS
+            </span>
+          </h1>
+          <p className="text-lg text-gray-300 max-w-2xl mx-auto">
+            AI-powered resume analysis that shows how well your resume passes
+            Applicant Tracking Systems.
+          </p>
+        </div>
+        <SignInGate />
+      </div>
+    );
+  }
 
   return (
     <>

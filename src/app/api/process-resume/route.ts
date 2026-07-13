@@ -38,11 +38,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Require sign-in once auth is configured. Before Supabase setup, the
-    // endpoint stays open so local testing works.
-    const authOn = isAuthConfigured();
+    // Hard auth gate — every request must be signed in. This is the real
+    // security boundary; the UI hiding the uploader is only cosmetic.
+    if (!isAuthConfigured()) {
+      return NextResponse.json(
+        { error: "Service unavailable." },
+        { status: 503 }
+      );
+    }
     const user = await getCurrentUser();
-    if (authOn && !user) {
+    if (!user) {
       return NextResponse.json(
         { error: "Please sign in to analyze your resume." },
         { status: 401 }
@@ -90,37 +95,36 @@ export async function POST(request: NextRequest) {
     // `cost` is tracked so it can be refunded if the analysis fails.
     const cost = mode === "detailed" ? CREDIT_COST.detailed : CREDIT_COST.basic;
     let creditsCharged = 0;
-    if (authOn && user) {
-      // Apply any due monthly free top-up before checking the balance.
-      await ensureMonthlyTopUp(user.id);
 
-      // Serve a cached basic result for the same file at no charge.
-      if (mode === "basic") {
-        const cached = await getCachedScan(user.id, fileHash);
-        if (cached) {
-          return NextResponse.json({
-            success: true,
-            data: cached,
-            cached: true,
-            message: "Loaded your recent analysis for this file.",
-          });
-        }
-      }
+    // Apply any due monthly free top-up before checking the balance.
+    await ensureMonthlyTopUp(user.id);
 
-      const spent = await spendCredits(user.id, cost);
-      if (!spent) {
-        return NextResponse.json(
-          {
-            error: `This ${
-              mode === "detailed" ? "detailed report" : "scan"
-            } needs ${cost} credit${cost > 1 ? "s" : ""}. You're out of credits — buy more to keep going.`,
-            code: "OUT_OF_CREDITS",
-          },
-          { status: 402 }
-        );
+    // Serve a cached basic result for the same file at no charge.
+    if (mode === "basic") {
+      const cached = await getCachedScan(user.id, fileHash);
+      if (cached) {
+        return NextResponse.json({
+          success: true,
+          data: cached,
+          cached: true,
+          message: "Loaded your recent analysis for this file.",
+        });
       }
-      creditsCharged = cost;
     }
+
+    const spent = await spendCredits(user.id, cost);
+    if (!spent) {
+      return NextResponse.json(
+        {
+          error: `This ${
+            mode === "detailed" ? "detailed report" : "scan"
+          } needs ${cost} credit${cost > 1 ? "s" : ""}. You're out of credits — buy more to keep going.`,
+          code: "OUT_OF_CREDITS",
+        },
+        { status: 402 }
+      );
+    }
+    creditsCharged = cost;
 
     const geminiService = new GeminiService();
     const result = await geminiService.processResumeWithGemini(
@@ -131,7 +135,7 @@ export async function POST(request: NextRequest) {
 
     if (!result.success) {
       // Refund — the user paid but got no result.
-      if (creditsCharged > 0 && user) {
+      if (creditsCharged > 0) {
         await refundCredits(user.id, creditsCharged).catch((e) =>
           console.error("Failed to refund credits:", e)
         );
@@ -144,7 +148,7 @@ export async function POST(request: NextRequest) {
 
     // Invalid job description — refund and ask the user to fix it.
     if (mode === "detailed" && result.data?.jd_invalid) {
-      if (creditsCharged > 0 && user) {
+      if (creditsCharged > 0) {
         await refundCredits(user.id, creditsCharged).catch((e) =>
           console.error("Failed to refund credits:", e)
         );
@@ -160,7 +164,7 @@ export async function POST(request: NextRequest) {
 
     // Persist to history + store the PDF so it can be re-analyzed later
     // (best-effort; never block the response on it).
-    if (authOn && user && result.data) {
+    if (result.data) {
       const resultData = result.data;
       (async () => {
         const storagePath = await uploadResumePdf(user.id, fileHash, buffer);
