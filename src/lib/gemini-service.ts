@@ -378,7 +378,7 @@ ${detailedSection}
 
       const response = await withTimeout(
         this.ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-2.5-flash-lite",
           contents: contents,
           config: { responseMimeType: "application/json" },
         }),
@@ -460,13 +460,57 @@ ${detailedSection}
         raw_text: responseText,
       };
     } catch (error) {
+      // Log the raw provider error for debugging, but return a clean,
+      // user-friendly message — never leak raw Gemini JSON to the client.
       console.error("Error processing resume:", error);
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Unknown error occurred",
+        error: friendlyGeminiError(error),
         raw_text: "",
       };
     }
   }
+}
+
+/** Maps raw provider/network errors to short, human-readable messages. */
+export function friendlyGeminiError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+
+  if (lower.includes("timed out") || lower.includes("timeout")) {
+    return "The analysis took too long this time. Please try again.";
+  }
+  if (
+    lower.includes("429") ||
+    lower.includes("resource_exhausted") ||
+    lower.includes("quota") ||
+    lower.includes("rate limit")
+  ) {
+    const m =
+      msg.match(/retry in ([0-9.]+)s/i) ||
+      msg.match(/retryDelay[":\s]+"?(\d+)s/i);
+    const secs = m ? Math.ceil(parseFloat(m[1])) : null;
+    return `Our AI is very busy right now and we've hit a temporary usage limit. Please try again${
+      secs ? ` in about ${secs} seconds` : " in a minute"
+    }. You were not charged.`;
+  }
+  if (
+    lower.includes("503") ||
+    lower.includes("unavailable") ||
+    lower.includes("overloaded")
+  ) {
+    return "The AI service is temporarily unavailable. Please try again in a moment. You were not charged.";
+  }
+  if (
+    lower.includes("api key") ||
+    lower.includes("permission") ||
+    lower.includes("401") ||
+    lower.includes("403")
+  ) {
+    return "The analysis service is temporarily unavailable. Please try again later.";
+  }
+  if (lower.includes("safety") || lower.includes("blocked")) {
+    return "We couldn't analyze this document. Please try a different file.";
+  }
+  return "Something went wrong while analyzing your resume. Please try again.";
 }

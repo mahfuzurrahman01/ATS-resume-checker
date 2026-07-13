@@ -8,14 +8,17 @@ import { DetailedReport } from "@/components/DetailedReport";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { ResumeData } from "@/lib/gemini-service";
 import { Button } from "@/components/ui/button";
+import { ErrorNotice } from "@/components/ui/error-notice";
 import { Upload, Download, Github, Code, Sparkles } from "lucide-react";
 import { gsap } from "gsap";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { SignInGate } from "@/components/SignInGate";
+import { useCredits } from "@/lib/credits-context";
 
 export default function Home() {
   const router = useRouter();
+  const creditsCtx = useCredits();
   const [isProcessing, setIsProcessing] = useState(false);
   const [results, setResults] = useState<ResumeData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -123,6 +126,9 @@ export default function Home() {
       });
 
       const data = await response.json();
+
+      // Keep the navbar credit balance in sync with the server.
+      if (data?.credits && creditsCtx) creditsCtx.setCredits(data.credits);
 
       if (!response.ok) {
         const err = new Error(data.error || "Failed to process resume");
@@ -289,18 +295,17 @@ export default function Home() {
 
                 {/* Hidden file input for main upload button */}
 
-                {/* Enhanced Error Display */}
+                {/* Error Display */}
                 {error && (
-                  <div className="bg-gradient-to-r from-red-100 to-pink-100 dark:from-red-50 dark:to-pink-50 border border-red-300 dark:border-red-200 rounded-2xl p-6 max-w-md mx-auto shadow-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                      <span className="font-semibold text-red-800 dark:text-red-700">
-                        Error
-                      </span>
-                    </div>
-                    <p className="text-red-700 dark:text-red-600 mt-3 text-center">
-                      {error}
-                    </p>
+                  <div className="max-w-lg mx-auto">
+                    <ErrorNotice
+                      message={error}
+                      onRetry={
+                        lastFile
+                          ? () => analyze(lastFile, "basic")
+                          : undefined
+                      }
+                    />
                   </div>
                 )}
 
@@ -368,11 +373,7 @@ export default function Home() {
                 <ProSuggestions data={results} />
 
                 {/* Inline error (e.g. out of credits on detailed request) */}
-                {error && (
-                  <div className="bg-red-900/20 border border-red-700/40 rounded-xl p-4 text-center">
-                    <p className="text-red-300 text-sm">{error}</p>
-                  </div>
-                )}
+                {error && <ErrorNotice message={error} />}
 
                 {/* Detailed Report — unlock CTA or paid results */}
                 {results.is_resume && (

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GeminiService } from "@/lib/gemini-service";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { getCurrentUser, isAuthConfigured } from "@/lib/auth";
+import { getCurrentUser, getUserCredits, isAuthConfigured } from "@/lib/auth";
 import {
   CREDIT_COST,
   ensureMonthlyTopUp,
@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
           success: true,
           data: cached,
           cached: true,
+          credits: await getUserCredits(user.id),
           message: "Loaded your recent analysis for this file.",
         });
       }
@@ -120,6 +121,7 @@ export async function POST(request: NextRequest) {
             mode === "detailed" ? "detailed report" : "scan"
           } needs ${cost} credit${cost > 1 ? "s" : ""}. You're out of credits — buy more to keep going.`,
           code: "OUT_OF_CREDITS",
+          credits: await getUserCredits(user.id),
         },
         { status: 402 }
       );
@@ -157,7 +159,11 @@ export async function POST(request: NextRequest) {
         result.data.jd_invalid_message ||
         "The text you provided doesn't look like a job description. Please paste a real job posting and try again.";
       return NextResponse.json(
-        { error: `${base} You were not charged.`, code: "INVALID_JD" },
+        {
+          error: `${base} You were not charged.`,
+          code: "INVALID_JD",
+          credits: await getUserCredits(user.id),
+        },
         { status: 422 }
       );
     }
@@ -183,6 +189,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: result.data,
+      credits: await getUserCredits(user.id),
       message: "Resume processed successfully",
     });
   } catch (error) {

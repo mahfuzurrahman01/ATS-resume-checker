@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GeminiService } from "@/lib/gemini-service";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { getCurrentUser, isAuthConfigured } from "@/lib/auth";
+import { getCurrentUser, getUserCredits, isAuthConfigured } from "@/lib/auth";
 import {
   CREDIT_COST,
   downloadResumePdf,
@@ -85,8 +85,11 @@ export async function POST(
     if (creditsCharged < 0) {
       return NextResponse.json(
         {
-          error: `A detailed report needs ${cost} credits. You're out of credits — buy more to keep going.`,
+          error: `A detailed report needs ${cost} credit${
+            cost > 1 ? "s" : ""
+          }. You're out of credits — buy more to keep going.`,
           code: "OUT_OF_CREDITS",
+          credits: await getUserCredits(user.id),
         },
         { status: 402 }
       );
@@ -118,7 +121,11 @@ export async function POST(
         result.data.jd_invalid_message ||
         "The text you provided doesn't look like a job description. Please paste a real job posting and try again.";
       return NextResponse.json(
-        { error: `${base} You were not charged.`, code: "INVALID_JD" },
+        {
+          error: `${base} You were not charged.`,
+          code: "INVALID_JD",
+          credits: await getUserCredits(user.id),
+        },
         { status: 422 }
       );
     }
@@ -135,7 +142,11 @@ export async function POST(
       fileName: scan.file_name,
     }).catch((e) => console.error("Failed to record scan:", e));
 
-    return NextResponse.json({ success: true, data: resultData });
+    return NextResponse.json({
+      success: true,
+      data: resultData,
+      credits: await getUserCredits(user.id),
+    });
   } catch (error) {
     console.error("Error generating detailed report:", error);
     return NextResponse.json(

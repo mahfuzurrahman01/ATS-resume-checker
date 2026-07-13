@@ -1,12 +1,12 @@
 import React from "react";
 import Link from "next/link";
-import { Github, Coins, Crown } from "lucide-react";
-import { getCurrentUser, getUserCredits } from "@/lib/auth";
+import { Github } from "lucide-react";
+import { getCurrentUser } from "@/lib/auth";
 import { AuthButton } from "@/components/AuthButton";
+import { CreditsNavBadge } from "@/components/CreditsNavBadge";
 
 export async function Navbar() {
   const user = await getCurrentUser();
-  const credits = user ? await getUserCredits(user.id) : null;
 
   return (
     <nav className="relative z-50">
@@ -35,21 +35,7 @@ export async function Navbar() {
                 My Resumes
               </Link>
             )}
-            {user && credits && (
-              <span className="hidden sm:inline-flex items-center space-x-1.5 rounded-full bg-gray-900/60 border border-gray-700/40 px-3 py-1.5 text-sm text-gray-200">
-                {credits.isLifetime ? (
-                  <>
-                    <Crown className="h-4 w-4 text-yellow-400" />
-                    <span>Lifetime</span>
-                  </>
-                ) : (
-                  <>
-                    <Coins className="h-4 w-4 text-purple-400" />
-                    <span>{credits.balance} credits</span>
-                  </>
-                )}
-              </span>
-            )}
+            <CreditsNavBadge />
 
             <Link
               href="https://github.com/mahfuzurrahman01"

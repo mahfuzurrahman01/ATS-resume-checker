@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CreditBadge } from "@/components/ui/credit-badge";
+import { ErrorNotice } from "@/components/ui/error-notice";
 import { CREDIT_COST } from "@/lib/credit-costs";
 import { ResultsDisplay } from "@/components/ResultsDisplay";
 import { DetailedReport } from "@/components/DetailedReport";
@@ -27,6 +28,7 @@ import type { ResumeData } from "@/lib/gemini-service";
 import type { ScanRecord } from "@/lib/scans";
 import type { CurrentUser, UserCredits } from "@/lib/auth";
 import { looksLikeJobDescription } from "@/lib/utils";
+import { useCredits } from "@/lib/credits-context";
 
 interface ProfileClientProps {
   user: CurrentUser;
@@ -35,6 +37,8 @@ interface ProfileClientProps {
 }
 
 export function ProfileClient({ user, credits, scans }: ProfileClientProps) {
+  const creditsCtx = useCredits();
+  const liveCredits = creditsCtx?.credits ?? credits;
   const [selected, setSelected] = useState<ScanRecord | null>(null);
   const [jd, setJd] = useState("");
   const [loading, setLoading] = useState(false);
@@ -67,6 +71,7 @@ export function ProfileClient({ user, credits, scans }: ProfileClientProps) {
         body: JSON.stringify({ jobDescription: trimmed || undefined }),
       });
       const data = await res.json();
+      if (data?.credits && creditsCtx) creditsCtx.setCredits(data.credits);
       if (!res.ok) throw new Error(data.error || "Failed to generate report");
       setFreshDetailed(data.data as ResumeData);
     } catch (e) {
@@ -107,7 +112,7 @@ export function ProfileClient({ user, credits, scans }: ProfileClientProps) {
               Paste a job description to get a fresh match score, missing
               keywords, and bullet rewrites. Costs {CREDIT_COST.detailed} credit
               {CREDIT_COST.detailed === 1 ? "" : "s"}
-              {credits.isLifetime ? " (free for lifetime members)" : ""}.
+              {liveCredits.isLifetime ? " (free for lifetime members)" : ""}.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -119,7 +124,7 @@ export function ProfileClient({ user, credits, scans }: ProfileClientProps) {
               disabled={loading}
               className="w-full rounded-xl bg-gray-800/60 border border-gray-700/50 p-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-y"
             />
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            {error && <ErrorNotice message={error} onRetry={runDetailed} />}
             <Button
               onClick={runDetailed}
               disabled={loading}
@@ -179,7 +184,7 @@ export function ProfileClient({ user, credits, scans }: ProfileClientProps) {
         </div>
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center space-x-1.5 rounded-full bg-gray-900/60 border border-gray-700/40 px-3 py-1.5 text-sm text-gray-200">
-            {credits.isLifetime ? (
+            {liveCredits.isLifetime ? (
               <>
                 <Crown className="h-4 w-4 text-yellow-400" />
                 <span>Lifetime</span>
@@ -187,7 +192,10 @@ export function ProfileClient({ user, credits, scans }: ProfileClientProps) {
             ) : (
               <>
                 <Coins className="h-4 w-4 text-purple-400" />
-                <span>{credits.balance} credits</span>
+                <span>
+                  {liveCredits.balance} credit
+                  {liveCredits.balance === 1 ? "" : "s"}
+                </span>
               </>
             )}
           </span>
