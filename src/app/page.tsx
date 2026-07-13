@@ -4,18 +4,43 @@ import React, { useState, useEffect, useRef } from "react";
 import { FileUpload } from "@/components/FileUpload";
 import { ResultsDisplay } from "@/components/ResultsDisplay";
 import { ProSuggestions } from "@/components/ProSuggestions";
+import { DetailedReport } from "@/components/DetailedReport";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { ResumeData } from "@/lib/gemini-service";
 import { Button } from "@/components/ui/button";
+import { ErrorNotice } from "@/components/ui/error-notice";
 import { Upload, Download, Github, Code, Sparkles } from "lucide-react";
 import { gsap } from "gsap";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { SignInGate } from "@/components/SignInGate";
+import { useCredits } from "@/lib/credits-context";
 
 export default function Home() {
   const router = useRouter();
+  const creditsCtx = useCredits();
   const [isProcessing, setIsProcessing] = useState(false);
   const [results, setResults] = useState<ResumeData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastFile, setLastFile] = useState<File | null>(null);
+  const [authStatus, setAuthStatus] = useState<"loading" | "in" | "out">(
+    "loading"
+  );
+
+  // Resolve auth state on the client and keep it in sync. This only controls
+  // what the UI shows — the API enforces auth on the server regardless.
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth
+      .getUser()
+      .then(({ data }) => setAuthStatus(data.user ? "in" : "out"));
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) =>
+      setAuthStatus(session?.user ? "in" : "out")
+    );
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Refs for GSAP animations
   const headerRef = useRef<HTMLDivElement>(null);
@@ -26,9 +51,9 @@ export default function Home() {
   const uploadRef = useRef<HTMLDivElement>(null);
   const statsRef = useRef<HTMLDivElement>(null);
 
-  // GSAP animations on mount
+  // GSAP animations on mount (only when the signed-in app UI is shown)
   useEffect(() => {
-    if (!results) {
+    if (authStatus === "in" && !results) {
       const tl = gsap.timeline({ delay: 0.2 });
 
       // Animate banner
@@ -78,16 +103,22 @@ export default function Home() {
           "-=0.4"
         );
     }
-  }, [results]);
+  }, [results, authStatus]);
 
-  const handleFileSelect = async (file: File) => {
+  const analyze = async (
+    file: File,
+    mode: "basic" | "detailed" = "basic",
+    jobDescription?: string
+  ) => {
     setIsProcessing(true);
     setError(null);
-    setResults(null);
+    if (mode === "basic") setResults(null);
 
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("mode", mode);
+      if (jobDescription) formData.append("jobDescription", jobDescription);
 
       const response = await fetch("/api/process-resume", {
         method: "POST",
@@ -96,8 +127,14 @@ export default function Home() {
 
       const data = await response.json();
 
+      // Keep the navbar credit balance in sync with the server.
+      if (data?.credits && creditsCtx) creditsCtx.setCredits(data.credits);
+
       if (!response.ok) {
-        throw new Error(data.error || "Failed to process resume");
+        const err = new Error(data.error || "Failed to process resume");
+        // Surface the machine code so the UI can react (e.g. out of credits).
+        (err as Error & { code?: string }).code = data.code;
+        throw err;
       }
 
       if (data.success && data.data) {
@@ -114,9 +151,20 @@ export default function Home() {
     }
   };
 
+  const handleFileSelect = async (file: File) => {
+    setLastFile(file);
+    await analyze(file, "basic");
+  };
+
+  const handleGetDetailed = async (jobDescription?: string) => {
+    if (!lastFile) return;
+    await analyze(lastFile, "detailed", jobDescription);
+  };
+
   const handleReset = () => {
     setResults(null);
     setError(null);
+    setLastFile(null);
   };
 
   const handleDownloadReport = async () => {
@@ -129,6 +177,37 @@ export default function Home() {
       alert("Failed to generate PDF. Please try again.");
     }
   };
+
+  // While resolving auth, show a minimal placeholder to avoid UI flash.
+  if (authStatus === "loading") {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Logged out: no uploader at all — require sign-in first.
+  if (authStatus === "out") {
+    return (
+      <div className="container mx-auto px-4 py-16 max-w-4xl">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl sm:text-5xl font-bold mb-5">
+            <span className="text-white">Craft Perfect</span>
+            <br />
+            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Resumes for ATS
+            </span>
+          </h1>
+          <p className="text-lg text-gray-300 max-w-2xl mx-auto">
+            AI-powered resume analysis that shows how well your resume passes
+            Applicant Tracking Systems.
+          </p>
+        </div>
+        <SignInGate />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -216,18 +295,17 @@ export default function Home() {
 
                 {/* Hidden file input for main upload button */}
 
-                {/* Enhanced Error Display */}
+                {/* Error Display */}
                 {error && (
-                  <div className="bg-gradient-to-r from-red-100 to-pink-100 dark:from-red-50 dark:to-pink-50 border border-red-300 dark:border-red-200 rounded-2xl p-6 max-w-md mx-auto shadow-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                      <span className="font-semibold text-red-800 dark:text-red-700">
-                        Error
-                      </span>
-                    </div>
-                    <p className="text-red-700 dark:text-red-600 mt-3 text-center">
-                      {error}
-                    </p>
+                  <div className="max-w-lg mx-auto">
+                    <ErrorNotice
+                      message={error}
+                      onRetry={
+                        lastFile
+                          ? () => analyze(lastFile, "basic")
+                          : undefined
+                      }
+                    />
                   </div>
                 )}
 
@@ -293,6 +371,18 @@ export default function Home() {
 
                 {/* Pro Suggestions */}
                 <ProSuggestions data={results} />
+
+                {/* Inline error (e.g. out of credits on detailed request) */}
+                {error && <ErrorNotice message={error} />}
+
+                {/* Detailed Report — unlock CTA or paid results */}
+                {results.is_resume && (
+                  <DetailedReport
+                    data={results}
+                    isProcessing={isProcessing}
+                    onRequest={handleGetDetailed}
+                  />
+                )}
               </div>
             )}
           </div>

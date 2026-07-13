@@ -1,8 +1,13 @@
 import React from "react";
 import Link from "next/link";
 import { Github } from "lucide-react";
+import { getCurrentUser } from "@/lib/auth";
+import { AuthButton } from "@/components/AuthButton";
+import { CreditsNavBadge } from "@/components/CreditsNavBadge";
 
-export function Navbar() {
+export async function Navbar() {
+  const user = await getCurrentUser();
+
   return (
     <nav className="relative z-50">
       <div className="container max-w-7xl mx-auto px-4 py-6">
@@ -20,9 +25,18 @@ export function Navbar() {
             </Link>
           </div>
 
-          {/* Right side icons */}
-          <div className="flex items-center space-x-2">
-            {/* GitHub Icon */}
+          {/* Right side */}
+          <div className="flex items-center space-x-3">
+            {user && (
+              <Link
+                href="/profile"
+                className="hidden sm:inline text-sm text-gray-300 hover:text-white transition-colors"
+              >
+                My Resumes
+              </Link>
+            )}
+            <CreditsNavBadge />
+
             <Link
               href="https://github.com/mahfuzurrahman01"
               target="_blank"
@@ -31,6 +45,18 @@ export function Navbar() {
             >
               <Github className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
             </Link>
+
+            <AuthButton
+              user={
+                user
+                  ? {
+                      email: user.email,
+                      name: user.name,
+                      avatarUrl: user.avatarUrl,
+                    }
+                  : null
+              }
+            />
           </div>
         </div>
       </div>

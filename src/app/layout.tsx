@@ -5,6 +5,8 @@ import { Navbar } from "@/components/Navbar";
 import { Background } from "@/components/Background";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { CreditsProvider } from "@/lib/credits-context";
+import { getCurrentUser, getUserCredits } from "@/lib/auth";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -32,24 +34,34 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getCurrentUser();
+  const credits = user
+    ? await getUserCredits(user.id)
+    : { balance: 0, isLifetime: false };
+
   return (
     <html lang="en" className="dark">
       <body className={inter.className}>
-        <div className="min-h-screen w-full relative !bg-transparent">
-          <Background />
-          <SpeedInsights />
-          {/* Content */}
-          <div className="relative z-10">
-            <Analytics />
-            <Navbar />
-            <div className="text-white !bg-transparent">{children}</div>
+        <CreditsProvider
+          initial={{ balance: credits.balance, isLifetime: credits.isLifetime }}
+          loggedIn={!!user}
+        >
+          <div className="min-h-screen w-full relative !bg-transparent">
+            <Background />
+            <SpeedInsights />
+            {/* Content */}
+            <div className="relative z-10">
+              <Analytics />
+              <Navbar />
+              <div className="text-white !bg-transparent">{children}</div>
+            </div>
           </div>
-        </div>
+        </CreditsProvider>
       </body>
     </html>
   );

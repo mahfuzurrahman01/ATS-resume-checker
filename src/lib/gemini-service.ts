@@ -1,6 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 
-const GEMINI_TIMEOUT_MS = 45_000;
+// Detailed reports are a much larger generation (parse preview + rewrites +
+// JD match), so they get a longer budget than a basic scan.
+const BASIC_TIMEOUT_MS = 60_000;
+const DETAILED_TIMEOUT_MS = 110_000;
 
 /** Rejects if the given promise does not settle within `ms`. */
 function withTimeout<T>(
@@ -14,6 +17,55 @@ function withTimeout<T>(
       setTimeout(() => reject(new Error(message)), ms)
     ),
   ]);
+}
+
+/**
+ * Extra instructions appended for a paid "detailed report". Adds the ATS
+ * parse preview, bullet rewrites, and (when a JD is given) job-match analysis.
+ */
+function buildDetailedPrompt(jobDescription?: string): string {
+  const jd = jobDescription?.trim();
+  const jdBlock = jd
+    ? `
+        JOB DESCRIPTION MATCH (text WAS provided by the user):
+        --- PROVIDED TEXT START ---
+        ${jd.slice(0, 6000)}
+        --- PROVIDED TEXT END ---
+
+        FIRST validate this text. A real job description mentions a role/title,
+        responsibilities, requirements, or qualifications. If the text is clearly
+        NOT a job posting (e.g. source code, SQL, a resume, random notes, lorem
+        ipsum, or gibberish), then set:
+          "jd_invalid": true,
+          "jd_invalid_message": "The text you provided doesn't look like a job description. Please paste a real job posting and try again."
+        and DO NOT fabricate a "jd_match" object. Omit jd_match entirely.
+
+        Otherwise (it IS a job description), set "jd_invalid": false and add:
+        "jd_match": {
+          "match_score": 0-100 (how well this resume fits THIS job),
+          "matched_keywords": ["keywords from the JD found in the resume"],
+          "missing_keywords": ["important JD keywords missing from the resume"],
+          "title_alignment": "how well the candidate's title/level matches the role",
+          "summary": "2-3 sentence verdict on fit and the top gap to close"
+        }`
+    : `
+        No job description was provided, so OMIT the "jd_match" field entirely.`;
+
+  return `
+        DETAILED REPORT MODE (paid). In ADDITION to everything above, include:
+
+        1. "parse_preview": a plain-text rendering of the resume exactly as a
+           simple ATS parser would extract it (linear, no columns/tables/graphics).
+           This shows the user what the machine actually reads.
+
+        2. "bullet_rewrites": an array of up to 8 objects that take the WEAKEST
+           experience bullet points and rewrite them. Each item:
+           { "original": "...", "improved": "action verb + quantified result",
+             "reason": "why the rewrite is stronger for ATS and recruiters" }
+           Only include bullets that genuinely need improvement.
+        ${jdBlock}
+
+        Return all of these inside the SAME top-level JSON object.`;
 }
 
 export interface ResumeData {
@@ -74,6 +126,34 @@ export interface ResumeData {
       potential_score_increase: number;
     };
   };
+  // ----- detailed-report fields (paid) -----
+  /** Set when the provided "job description" is clearly not a job posting. */
+  jd_invalid?: boolean;
+  jd_invalid_message?: string;
+  /** Job-description match analysis, present only when a JD is provided. */
+  jd_match?: {
+    match_score: number; // 0-100 fit for the specific job
+    matched_keywords: string[];
+    missing_keywords: string[];
+    title_alignment: string; // how well the resume title fits the role
+    summary: string; // short verdict
+  };
+  /** Plain text an ATS is likely to extract from the resume. */
+  parse_preview?: string;
+  /** Rewritten experience bullets: weak -> action-verb + quantified. */
+  bullet_rewrites?: Array<{
+    original: string;
+    improved: string;
+    reason: string;
+  }>;
+}
+
+export type AnalysisMode = "basic" | "detailed";
+
+export interface AnalysisOptions {
+  mode?: AnalysisMode;
+  /** Optional job description to match the resume against (detailed mode). */
+  jobDescription?: string;
 }
 
 export interface ATSAnalysisResult {
@@ -100,12 +180,17 @@ export class GeminiService {
 
   async processResumeWithGemini(
     base64Data: string,
-    fileType: string
+    fileType: string,
+    options: AnalysisOptions = {}
   ): Promise<ATSAnalysisResult> {
     try {
+      const { mode = "basic", jobDescription } = options;
       const today = new Date();
       const currentYear = today.getFullYear();
       const currentMonth = today.getMonth() + 1; // getMonth() returns 0-11
+
+      const detailedSection =
+        mode === "detailed" ? buildDetailedPrompt(jobDescription) : "";
 
       const prompt = `
         FIRST: Determine if this document is actually a resume or CV. Look for:
@@ -277,6 +362,7 @@ export class GeminiService {
         - Prioritize suggestions based on their impact on ATS compatibility
         - Focus on practical, implementable changes
         - Consider industry best practices and current ATS requirements
+${detailedSection}
       `;
 
       const contents = [
@@ -292,11 +378,11 @@ export class GeminiService {
 
       const response = await withTimeout(
         this.ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-2.5-flash-lite",
           contents: contents,
           config: { responseMimeType: "application/json" },
         }),
-        GEMINI_TIMEOUT_MS,
+        mode === "detailed" ? DETAILED_TIMEOUT_MS : BASIC_TIMEOUT_MS,
         "Resume analysis timed out. Please try again."
       );
 
@@ -374,13 +460,57 @@ export class GeminiService {
         raw_text: responseText,
       };
     } catch (error) {
+      // Log the raw provider error for debugging, but return a clean,
+      // user-friendly message — never leak raw Gemini JSON to the client.
       console.error("Error processing resume:", error);
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Unknown error occurred",
+        error: friendlyGeminiError(error),
         raw_text: "",
       };
     }
   }
+}
+
+/** Maps raw provider/network errors to short, human-readable messages. */
+export function friendlyGeminiError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+
+  if (lower.includes("timed out") || lower.includes("timeout")) {
+    return "The analysis took too long this time. Please try again.";
+  }
+  if (
+    lower.includes("429") ||
+    lower.includes("resource_exhausted") ||
+    lower.includes("quota") ||
+    lower.includes("rate limit")
+  ) {
+    const m =
+      msg.match(/retry in ([0-9.]+)s/i) ||
+      msg.match(/retryDelay[":\s]+"?(\d+)s/i);
+    const secs = m ? Math.ceil(parseFloat(m[1])) : null;
+    return `Our AI is very busy right now and we've hit a temporary usage limit. Please try again${
+      secs ? ` in about ${secs} seconds` : " in a minute"
+    }. You were not charged.`;
+  }
+  if (
+    lower.includes("503") ||
+    lower.includes("unavailable") ||
+    lower.includes("overloaded")
+  ) {
+    return "The AI service is temporarily unavailable. Please try again in a moment. You were not charged.";
+  }
+  if (
+    lower.includes("api key") ||
+    lower.includes("permission") ||
+    lower.includes("401") ||
+    lower.includes("403")
+  ) {
+    return "The analysis service is temporarily unavailable. Please try again later.";
+  }
+  if (lower.includes("safety") || lower.includes("blocked")) {
+    return "We couldn't analyze this document. Please try a different file.";
+  }
+  return "Something went wrong while analyzing your resume. Please try again.";
 }

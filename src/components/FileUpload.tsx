@@ -4,6 +4,8 @@ import React, { useState, useCallback } from "react";
 import { Upload, FileText, CheckCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { CreditBadge } from "@/components/ui/credit-badge";
+import { CREDIT_COST } from "@/lib/credit-costs";
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -169,12 +171,13 @@ export function FileUpload({ onFileSelect, isProcessing }: FileUploadProps) {
                 />
               </div>
 
-              {/* File type info */}
-              <div className="flex items-center justify-center space-x-4 text-sm text-gray-300">
+              {/* File type info + credit cost */}
+              <div className="flex items-center justify-center gap-3 text-sm text-gray-300">
                 <div className="flex items-center space-x-1">
                   <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                   <span>PDF only &middot; max 10MB</span>
                 </div>
+                <CreditBadge cost={CREDIT_COST.basic} />
               </div>
             </div>
           )}
