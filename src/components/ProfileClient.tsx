@@ -19,6 +19,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { CreditBadge } from "@/components/ui/credit-badge";
+import { CREDIT_COST } from "@/lib/credit-costs";
 import { ResultsDisplay } from "@/components/ResultsDisplay";
 import { DetailedReport } from "@/components/DetailedReport";
 import type { ResumeData } from "@/lib/gemini-service";
@@ -94,13 +96,17 @@ export function ProfileClient({ user, credits, scans }: ProfileClientProps) {
         {/* Re-run detailed against a new job description */}
         <Card className="mt-6 border-2 border-dashed border-purple-500/40 bg-gray-900/30 backdrop-blur-xl">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-white">
-              <Target className="h-5 w-5 text-blue-400" />
-              <span>Match this resume to a new job</span>
+            <CardTitle className="flex items-center justify-between text-white">
+              <span className="flex items-center space-x-2">
+                <Target className="h-5 w-5 text-blue-400" />
+                <span>Match this resume to a new job</span>
+              </span>
+              <CreditBadge cost={CREDIT_COST.detailed} />
             </CardTitle>
             <CardDescription className="text-gray-300">
               Paste a job description to get a fresh match score, missing
-              keywords, and bullet rewrites. Costs 2 credits
+              keywords, and bullet rewrites. Costs {CREDIT_COST.detailed} credit
+              {CREDIT_COST.detailed === 1 ? "" : "s"}
               {credits.isLifetime ? " (free for lifetime members)" : ""}.
             </CardDescription>
           </CardHeader>
@@ -120,7 +126,11 @@ export function ProfileClient({ user, credits, scans }: ProfileClientProps) {
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
             >
               <Sparkles className="h-4 w-4 mr-2" />
-              {loading ? "Analyzing…" : "Generate Detailed Report (2 credits)"}
+              {loading
+                ? "Analyzing…"
+                : `Generate Detailed Report (${CREDIT_COST.detailed} credit${
+                    CREDIT_COST.detailed === 1 ? "" : "s"
+                  })`}
             </Button>
           </CardContent>
         </Card>

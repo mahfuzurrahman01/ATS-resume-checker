@@ -18,7 +18,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { CreditBadge } from "@/components/ui/credit-badge";
 import { ResumeData } from "@/lib/gemini-service";
+import { CREDIT_COST } from "@/lib/credit-costs";
 import { looksLikeJobDescription } from "@/lib/utils";
 
 interface DetailedReportProps {
@@ -65,6 +67,9 @@ export function DetailedReport({
               Unlock the Detailed Report
             </CardTitle>
           </div>
+          <div className="flex justify-center mt-1">
+            <CreditBadge cost={CREDIT_COST.detailed} />
+          </div>
           <CardDescription className="text-gray-300">
             Job-description match, ATS parse preview, and AI-rewritten bullet
             points — everything you need to tailor this resume.
@@ -108,7 +113,9 @@ export function DetailedReport({
               <Crown className="h-4 w-4 mr-2" />
               {isProcessing
                 ? "Analyzing…"
-                : "Unlock Detailed Report (2 credits)"}
+                : `Unlock Detailed Report (${CREDIT_COST.detailed} credit${
+                    CREDIT_COST.detailed === 1 ? "" : "s"
+                  })`}
             </Button>
             <p className="text-xs text-gray-500">
               Lifetime members: unlimited detailed reports.

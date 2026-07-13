@@ -2,8 +2,7 @@ import { createHash } from "crypto";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { ResumeData } from "@/lib/gemini-service";
 
-/** Credit cost per action. */
-export const CREDIT_COST = { basic: 1, detailed: 2 } as const;
+export { CREDIT_COST } from "@/lib/credit-costs";
 
 /** Monthly free top-up: bring balance up to this if it falls below it. */
 export const MONTHLY_FREE_CREDITS = 3;
