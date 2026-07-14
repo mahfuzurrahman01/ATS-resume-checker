@@ -42,6 +42,7 @@ function buildDetailedPrompt(jobDescription?: string): string {
 
         Otherwise (it IS a job description), set "jd_invalid": false and add:
         "jd_match": {
+          "job_title": "the role/title from the job description, e.g. Senior Frontend Engineer",
           "match_score": 0-100 (how well this resume fits THIS job),
           "matched_keywords": ["keywords from the JD found in the resume"],
           "missing_keywords": ["important JD keywords missing from the resume"],
@@ -132,6 +133,7 @@ export interface ResumeData {
   jd_invalid_message?: string;
   /** Job-description match analysis, present only when a JD is provided. */
   jd_match?: {
+    job_title: string; // short role title from the JD, for labeling
     match_score: number; // 0-100 fit for the specific job
     matched_keywords: string[];
     missing_keywords: string[];
@@ -378,7 +380,7 @@ ${detailedSection}
 
       const response = await withTimeout(
         this.ai.models.generateContent({
-          model: "gemini-2.5-flash-lite",
+          model: "gemini-2.5-flash",
           contents: contents,
           config: { responseMimeType: "application/json" },
         }),

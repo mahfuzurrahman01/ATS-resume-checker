@@ -229,9 +229,14 @@ export default function ContactPage() {
                   Is my resume data secure?
                 </h4>
                 <p className="text-sm text-muted-foreground">
-                  Yes, your resume data is processed securely and never stored
-                  on our servers. We use industry-standard encryption and
-                  privacy practices.
+                  Your resume is stored privately in your account so you can
+                  revisit your results, and it&apos;s never shared beyond what&apos;s
+                  needed to run the analysis. You can delete it anytime from
+                  Settings — see our{" "}
+                  <a href="/privacy" className="underline">
+                    Privacy Policy
+                  </a>
+                  .
                 </p>
               </div>
               <div>

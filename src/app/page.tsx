@@ -1,401 +1,153 @@
-"use client";
-
-import React, { useState, useEffect, useRef } from "react";
-import { FileUpload } from "@/components/FileUpload";
-import { ResultsDisplay } from "@/components/ResultsDisplay";
-import { ProSuggestions } from "@/components/ProSuggestions";
-import { DetailedReport } from "@/components/DetailedReport";
-import { LoadingAnimation } from "@/components/LoadingAnimation";
-import { ResumeData } from "@/lib/gemini-service";
-import { Button } from "@/components/ui/button";
-import { ErrorNotice } from "@/components/ui/error-notice";
-import { Upload, Download, Github, Code, Sparkles } from "lucide-react";
-import { gsap } from "gsap";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
+import { ArrowRight, ScanLine, Target, Sparkles } from "lucide-react";
+import { getCurrentUser } from "@/lib/auth";
 import { SignInGate } from "@/components/SignInGate";
-import { useCredits } from "@/lib/credits-context";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ScoreBadge } from "@/components/ui/score-badge";
 
-export default function Home() {
-  const router = useRouter();
-  const creditsCtx = useCredits();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [results, setResults] = useState<ResumeData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [lastFile, setLastFile] = useState<File | null>(null);
-  const [authStatus, setAuthStatus] = useState<"loading" | "in" | "out">(
-    "loading"
-  );
-
-  // Resolve auth state on the client and keep it in sync. This only controls
-  // what the UI shows — the API enforces auth on the server regardless.
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth
-      .getUser()
-      .then(({ data }) => setAuthStatus(data.user ? "in" : "out"));
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) =>
-      setAuthStatus(session?.user ? "in" : "out")
-    );
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Refs for GSAP animations
-  const headerRef = useRef<HTMLDivElement>(null);
-  const bannerRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const descriptionRef = useRef<HTMLParagraphElement>(null);
-  const secondaryButtonsRef = useRef<HTMLDivElement>(null);
-  const uploadRef = useRef<HTMLDivElement>(null);
-  const statsRef = useRef<HTMLDivElement>(null);
-
-  // GSAP animations on mount (only when the signed-in app UI is shown)
-  useEffect(() => {
-    if (authStatus === "in" && !results) {
-      const tl = gsap.timeline({ delay: 0.2 });
-
-      // Animate banner
-      tl.fromTo(
-        bannerRef.current,
-        { y: -50, opacity: 0, scale: 0.8 },
-        { y: 0, opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.7)" }
-      )
-
-        // Animate title
-        .fromTo(
-          titleRef.current,
-          { y: 30, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.8, ease: "power2.out" },
-          "-=0.3"
-        )
-
-        // Animate description
-        .fromTo(
-          descriptionRef.current,
-          { y: 20, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.6, ease: "power2.out" },
-          "-=0.4"
-        )
-
-        // Animate secondary buttons
-        .fromTo(
-          secondaryButtonsRef.current,
-          { y: 30, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.6, ease: "power2.out" },
-          "-=0.4"
-        )
-
-        // Animate upload section
-        .fromTo(
-          uploadRef.current,
-          { y: 40, opacity: 0, scale: 0.95 },
-          { y: 0, opacity: 1, scale: 1, duration: 0.8, ease: "back.out(1.7)" },
-          "-=0.3"
-        )
-
-        // Animate stats
-        .fromTo(
-          statsRef.current,
-          { y: 30, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.6, ease: "power2.out" },
-          "-=0.4"
-        );
-    }
-  }, [results, authStatus]);
-
-  const analyze = async (
-    file: File,
-    mode: "basic" | "detailed" = "basic",
-    jobDescription?: string
-  ) => {
-    setIsProcessing(true);
-    setError(null);
-    if (mode === "basic") setResults(null);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("mode", mode);
-      if (jobDescription) formData.append("jobDescription", jobDescription);
-
-      const response = await fetch("/api/process-resume", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      // Keep the navbar credit balance in sync with the server.
-      if (data?.credits && creditsCtx) creditsCtx.setCredits(data.credits);
-
-      if (!response.ok) {
-        const err = new Error(data.error || "Failed to process resume");
-        // Surface the machine code so the UI can react (e.g. out of credits).
-        (err as Error & { code?: string }).code = data.code;
-        throw err;
-      }
-
-      if (data.success && data.data) {
-        setResults(data.data);
-      } else {
-        throw new Error("Invalid response from server");
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred"
-      );
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleFileSelect = async (file: File) => {
-    setLastFile(file);
-    await analyze(file, "basic");
-  };
-
-  const handleGetDetailed = async (jobDescription?: string) => {
-    if (!lastFile) return;
-    await analyze(lastFile, "detailed", jobDescription);
-  };
-
-  const handleReset = () => {
-    setResults(null);
-    setError(null);
-    setLastFile(null);
-  };
-
-  const handleDownloadReport = async () => {
-    if (!results) return;
-    try {
-      const { generatePdfReport } = await import("@/lib/generate-pdf-report");
-      await generatePdfReport(results);
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      alert("Failed to generate PDF. Please try again.");
-    }
-  };
-
-  // While resolving auth, show a minimal placeholder to avoid UI flash.
-  if (authStatus === "loading") {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  // Logged out: no uploader at all — require sign-in first.
-  if (authStatus === "out") {
-    return (
-      <div className="container mx-auto px-4 py-16 max-w-4xl">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl sm:text-5xl font-bold mb-5">
-            <span className="text-white">Craft Perfect</span>
-            <br />
-            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Resumes for ATS
-            </span>
-          </h1>
-          <p className="text-lg text-gray-300 max-w-2xl mx-auto">
-            AI-powered resume analysis that shows how well your resume passes
-            Applicant Tracking Systems.
-          </p>
-        </div>
-        <SignInGate />
-      </div>
-    );
-  }
+// Public marketing landing page. No uploader here — the product itself
+// lives at /scan (auth required).
+export default async function Home() {
+  const user = await getCurrentUser();
 
   return (
-    <>
-      {/* Loading Animation */}
-      <LoadingAnimation isProcessing={isProcessing} />
-      <div className="w-full relative">
-        {/* Your Content/Components */}
-        <div className="container mx-auto px-4 py-8 z-40 relative max-w-7xl">
-          {/* Main Content */}
-          <div className="max-w-4xl mx-auto">
-            {!results ? (
-              <div className="space-y-12">
-                {/* Header */}
-                <div ref={headerRef} className="text-center mb-16">
-                  {/* Enhanced New Features Banner */}
-                  <div
-                    ref={bannerRef}
-                    className="inline-flex items-center space-x-3 bg-gray-900/80 backdrop-blur-sm rounded-full px-6 py-3 mb-8 shadow-lg border border-gray-700/20 hover:shadow-xl transition-all duration-300 group"
-                  >
-                    <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-semibold text-gray-300 group-hover:text-white transition-colors">
-                      3+ New Features
-                    </span>
-                    <div className="w-5 h-5 bg-gradient-to-r from-orange-400 to-red-500 rounded-full flex items-center justify-center animate-bounce">
-                      <Sparkles className="w-3 h-3 text-white" />
-                    </div>
-                    <span className="text-sm text-gray-400 group-hover:text-gray-200 transition-colors">
-                      Coming Soon →
-                    </span>
-                  </div>
+    <div className="container mx-auto px-4 py-16 max-w-5xl">
+      {/* Hero */}
+      <div className="text-center mb-16">
+        <h1 className="text-5xl font-bold mb-6">
+          <span className="text-white">Craft Perfect</span>
+          <br />
+          <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            Resumes for ATS
+          </span>
+        </h1>
+        <p className="text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed mb-8">
+          A deterministic ATS score you can trust, AI feedback that never
+          invents facts about your resume, and a job-match report that tells
+          you honestly whether you&apos;re a fit.
+        </p>
 
-                  <h1 ref={titleRef} className="text-5xl font-bold mb-6">
-                    <span className="text-white">Craft Perfect</span>
-                    <br />
-                    <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                      Resumes for ATS
-                    </span>
-                  </h1>
-                  <p
-                    ref={descriptionRef}
-                    className="text-lg text-gray-300 max-w-3xl mx-auto leading-relaxed"
-                  >
-                    Professional-grade resume analysis and optimization. Get
-                    instant AI-powered feedback to ensure your resume passes
-                    through Applicant Tracking Systems seamlessly.
-                  </p>
-                </div>
-
-                {/* Enhanced Compact File Upload */}
-                <div ref={uploadRef} className="max-w-lg mx-auto">
-                  <FileUpload
-                    onFileSelect={handleFileSelect}
-                    isProcessing={isProcessing}
-                  />
-                </div>
-
-                {/* Enhanced Secondary Action Buttons */}
-                <div
-                  ref={secondaryButtonsRef}
-                  className="flex flex-col sm:flex-row gap-4 justify-center max-w-2xl mx-auto mt-8"
-                >
-                  <Button
-                    variant="outline"
-                    className="group bg-gray-900 hover:bg-gray-800 text-white border-gray-900 rounded-xl p-4 h-auto shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                    onClick={() =>
-                      window.open(
-                        "https://github.com/mahfuzurrahman01/ATS-resume-checker",
-                        "_blank"
-                      )
-                    }
-                  >
-                    <Github className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
-                    Contribute Here!
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="group bg-white hover:bg-gray-50 text-gray-900 dark:bg-gray-900 dark:hover:bg-gray-800 dark:text-white border border-gray-300 dark:border-gray-700 rounded-xl p-4 h-auto shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                    onClick={() => router.push("/about")}
-                  >
-                    <Code className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
-                    Browse Features
-                  </Button>
-                </div>
-
-                {/* Hidden file input for main upload button */}
-
-                {/* Error Display */}
-                {error && (
-                  <div className="max-w-lg mx-auto">
-                    <ErrorNotice
-                      message={error}
-                      onRetry={
-                        lastFile
-                          ? () => analyze(lastFile, "basic")
-                          : undefined
-                      }
-                    />
-                  </div>
-                )}
-
-                {/* Enhanced Statistics Section */}
-                <div
-                  ref={statsRef}
-                  className="border-t border-gray-200/50 dark:border-gray-700/50 pt-12 mt-20"
-                >
-                  <div className="grid grid-cols-3 gap-8 text-center">
-                    <div className="group">
-                      <div className="text-4xl font-bold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-300">
-                        100+
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        ATS Systems
-                      </div>
-                    </div>
-                    <div className="group">
-                      <div className="text-4xl font-bold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">
-                        100%
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        Free
-                      </div>
-                    </div>
-                    <div className="group">
-                      <div className="text-4xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">
-                        AI
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        & Analysis
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {/* Results Display */}
-                {/* Action Buttons - Only show when results are available */}
-                {results && (
-                  <div className="flex justify-start space-x-3 mb-6">
-                    <Button
-                      onClick={handleReset}
-                      variant="outline"
-                      size="sm"
-                      className="bg-gray-900/20 backdrop-blur-xl border border-gray-700/30 text-white hover:bg-gray-800/30 hover:border-gray-600/30"
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Another Resume
-                    </Button>
-                    <Button
-                      onClick={handleDownloadReport}
-                      size="sm"
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Report
-                    </Button>
-                  </div>
-                )}
-                <ResultsDisplay data={results} onReset={handleReset} />
-
-                {/* Pro Suggestions */}
-                <ProSuggestions data={results} />
-
-                {/* Inline error (e.g. out of credits on detailed request) */}
-                {error && <ErrorNotice message={error} />}
-
-                {/* Detailed Report — unlock CTA or paid results */}
-                {results.is_resume && (
-                  <DetailedReport
-                    data={results}
-                    isProcessing={isProcessing}
-                    onRequest={handleGetDetailed}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Enhanced Footer */}
-          <footer className="text-center mt-20 text-gray-400 text-sm">
-            <p className="bg-gray-900/50 backdrop-blur-sm rounded-full px-6 py-3 inline-block border border-gray-700/30">
-              Built with Next.js, TypeScript, and Gemini AI. Your resume data is
-              processed securely and not stored.
-            </p>
-          </footer>
-        </div>
+        {user ? (
+          <Link href="/scan">
+            <Button
+              size="lg"
+              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+            >
+              <ScanLine className="h-5 w-5 mr-2" />
+              Scan a resume
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </Link>
+        ) : (
+          <SignInGate />
+        )}
       </div>
-    </>
+
+      {/* What it does */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-16">
+        <Card className="bg-gray-900/20 border border-gray-700/30">
+          <CardContent className="p-6 space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-900/40 flex items-center justify-center">
+              <ScanLine className="h-5 w-5 text-blue-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-white">Scan</h3>
+            <p className="text-sm text-gray-300">
+              Upload your resume by itself. Get a deterministic 0-100 score,
+              mechanical ATS checks, and AI feedback on your writing — the
+              same resume always scores the same.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gray-900/20 border border-gray-700/30">
+          <CardContent className="p-6 space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-900/40 flex items-center justify-center">
+              <Target className="h-5 w-5 text-purple-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-white">Match</h3>
+            <p className="text-sm text-gray-300">
+              Paste a job description and see how well your resume actually
+              fits — an honest verdict, missing must-have keywords, and
+              tailored bullet rewrites.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Sample report mockup */}
+      <div className="mb-16">
+        <h2 className="text-2xl font-bold text-white text-center mb-2">
+          A score you can trust
+        </h2>
+        <p className="text-gray-300 text-center mb-8 max-w-xl mx-auto">
+          The score is computed in code from objective checks — not guessed by
+          an AI. Sample report shown below.
+        </p>
+        <Card className="bg-gray-900/20 border border-gray-700/30 max-w-2xl mx-auto">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-400" />
+                <span className="text-white font-medium">
+                  resume-sample.pdf
+                </span>
+              </div>
+              <ScoreBadge score={78} />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {[
+                ["Parseability", "26/30"],
+                ["Structure", "18/20"],
+                ["Contact", "15/15"],
+                ["Content", "14/25"],
+                ["Formatting", "5/10"],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-xl bg-gray-800/40 border border-gray-700/40 p-3 text-center"
+                >
+                  <p className="text-lg font-bold text-white">{value}</p>
+                  <p className="text-xs text-gray-400">{label}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Pricing teaser */}
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-white mb-3">
+          10 free credits to start
+        </h2>
+        <p className="text-gray-300 mb-6">
+          A scan costs 1 credit, a job match costs 2. Buy more whenever you
+          need them.
+        </p>
+        <Link href="/pricing">
+          <Button
+            variant="outline"
+            className="bg-gray-900/40 border-gray-700/40 text-gray-200 hover:bg-gray-800/40"
+          >
+            See pricing
+          </Button>
+        </Link>
+      </div>
+
+      <footer className="text-center mt-20 text-gray-400 text-sm space-y-3">
+        <p className="bg-gray-900/50 backdrop-blur-sm rounded-full px-6 py-3 inline-block border border-gray-700/30">
+          Your resume is stored privately in your account. You can delete it
+          at any time.
+        </p>
+        <div className="flex items-center justify-center gap-4 text-xs">
+          <Link href="/privacy" className="hover:text-gray-200">
+            Privacy Policy
+          </Link>
+          <Link href="/terms" className="hover:text-gray-200">
+            Terms of Service
+          </Link>
+        </div>
+      </footer>
+    </div>
   );
 }

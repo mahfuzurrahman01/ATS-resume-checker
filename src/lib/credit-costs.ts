@@ -3,8 +3,12 @@
  * components and server code (no server-only dependencies here).
  */
 export const CREDIT_COST = {
-  /** A general resume scan (score, issues, skills). */
+  /** @deprecated legacy vocabulary, kept only for pre-Phase-3 UI. Use `scan`. */
   basic: 1,
-  /** A detailed report (job match, parse preview, bullet rewrites). */
+  /** @deprecated legacy vocabulary, kept only for pre-Phase-3 UI. Use `match`. */
   detailed: 1,
+  /** A resume analyzed by itself, no job description. */
+  scan: 1,
+  /** A resume analyzed against a specific job description. */
+  match: 2,
 } as const;
