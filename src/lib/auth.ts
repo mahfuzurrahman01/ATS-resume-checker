@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 export interface CurrentUser {
@@ -20,8 +21,13 @@ export function isAuthConfigured(): boolean {
   );
 }
 
-/** Resolves the signed-in user from cookies, or null. Safe before setup. */
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+/**
+ * Resolves the signed-in user from cookies, or null. Safe before setup.
+ * Wrapped in React's `cache()` so multiple calls within the same request
+ * (e.g. a layout auth guard plus a page's own data loading) share one
+ * lookup instead of re-verifying the session repeatedly.
+ */
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!isAuthConfigured()) return null;
   try {
     const supabase = await createClient();
@@ -38,7 +44,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   } catch {
     return null;
   }
-}
+});
 
 /** Reads the user's credit balance / lifetime flag. */
 export async function getUserCredits(

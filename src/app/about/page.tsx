@@ -96,8 +96,13 @@ export default function AboutPage() {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                Your resume data is processed securely and never stored. We
-                prioritize your privacy and data protection.
+                Your resume is stored privately in your account, used only to
+                run your analysis, and you can delete it at any time from
+                Settings. See our{" "}
+                <a href="/privacy" className="underline">
+                  Privacy Policy
+                </a>{" "}
+                for details.
               </p>
             </CardContent>
           </Card>

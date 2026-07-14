@@ -34,6 +34,14 @@ export function FileUpload({ onFileSelect, isProcessing }: FileUploadProps) {
         setSelectedFile(null);
         return;
       }
+      if (file.size > 10 * 1024 * 1024) {
+        const mb = (file.size / (1024 * 1024)).toFixed(1);
+        setFileError(
+          `That file is ${mb}MB — the limit is 10MB. A typical resume is under 1MB.`
+        );
+        setSelectedFile(null);
+        return;
+      }
       setFileError(null);
       setSelectedFile(file);
       onFileSelect(file);

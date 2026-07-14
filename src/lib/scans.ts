@@ -166,6 +166,94 @@ export async function getScanById(
   return (data as ScanRecord) ?? null;
 }
 
+export interface JobMatch {
+  scanId: string;
+  createdAt: string;
+  jobTitle: string;
+  matchScore: number | null;
+  result: ResumeData;
+}
+
+/** A unique uploaded resume with its basic scan + all job matches. */
+export interface ResumeGroup {
+  fileHash: string;
+  fileName: string | null;
+  storagePath: string | null;
+  representativeScanId: string; // any scan of this file (for the file URL)
+  uploadedAt: string; // earliest scan for this file
+  score: number | null; // representative ATS score
+  result: ResumeData; // representative result (for contact/skills/etc.)
+  jobMatches: JobMatch[];
+  hasJobMatch: boolean;
+}
+
+/**
+ * Groups the user's scans into unique resumes (by file hash). Each resume
+ * carries a representative basic result plus every job match run on it.
+ */
+export async function getUserResumes(userId: string): Promise<ResumeGroup[]> {
+  const scans = await getUserScans(userId); // newest first
+  const groups = new Map<string, ScanRecord[]>();
+
+  for (const scan of scans) {
+    const key = scan.file_hash || scan.storage_path || scan.id;
+    const list = groups.get(key) ?? [];
+    list.push(scan);
+    groups.set(key, list);
+  }
+
+  const resumes: ResumeGroup[] = [];
+  for (const [key, list] of groups) {
+    // list is newest-first. Representative = most recent scan for display.
+    const rep = list[0];
+    const jobMatches: JobMatch[] = list
+      .filter((s) => s.jd_provided && s.result?.jd_match)
+      .map((s) => ({
+        scanId: s.id,
+        createdAt: s.created_at,
+        jobTitle: s.result.jd_match?.job_title || "Job match",
+        matchScore: s.result.jd_match?.match_score ?? null,
+        result: s.result,
+      }));
+
+    resumes.push({
+      fileHash: key,
+      fileName: rep.file_name,
+      storagePath: rep.storage_path,
+      representativeScanId: rep.id,
+      uploadedAt: list[list.length - 1].created_at,
+      score: rep.score,
+      result: rep.result,
+      jobMatches,
+      hasJobMatch: jobMatches.length > 0,
+    });
+  }
+
+  // Newest resumes first.
+  resumes.sort(
+    (a, b) =>
+      new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+  );
+  return resumes;
+}
+
+/** Signed, short-lived URL to view or download a stored resume PDF. */
+export async function getSignedResumeUrl(
+  storagePath: string,
+  download?: string | false
+): Promise<string | null> {
+  try {
+    const svc = createServiceClient();
+    const { data, error } = await svc.storage
+      .from("resumes")
+      .createSignedUrl(storagePath, 120, download ? { download } : undefined);
+    if (error || !data) return null;
+    return data.signedUrl;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Atomically spends `amount` credits if the balance allows. Uses the
  * service-role client (credits have no client-writable RLS policy).

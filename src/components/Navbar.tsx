@@ -27,13 +27,33 @@ export async function Navbar() {
 
           {/* Right side */}
           <div className="flex items-center space-x-3">
+            <Link
+              href="/pricing"
+              className="hidden sm:inline text-sm text-gray-300 hover:text-white transition-colors"
+            >
+              Pricing
+            </Link>
             {user && (
-              <Link
-                href="/profile"
-                className="hidden sm:inline text-sm text-gray-300 hover:text-white transition-colors"
-              >
-                My Resumes
-              </Link>
+              <>
+                <Link
+                  href="/scan"
+                  className="hidden sm:inline text-sm text-gray-300 hover:text-white transition-colors"
+                >
+                  Scan
+                </Link>
+                <Link
+                  href="/resumes"
+                  className="hidden sm:inline text-sm text-gray-300 hover:text-white transition-colors"
+                >
+                  My Resumes
+                </Link>
+                <Link
+                  href="/settings"
+                  className="hidden sm:inline text-sm text-gray-300 hover:text-white transition-colors"
+                >
+                  Settings
+                </Link>
+              </>
             )}
             <CreditsNavBadge />
 
