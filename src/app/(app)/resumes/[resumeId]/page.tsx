@@ -26,7 +26,7 @@ import { CATEGORY_MAX } from "@/lib/analysis/score";
 import type { CheckCategory } from "@/lib/analysis/checks";
 
 export const metadata = {
-  title: "Resume - ATS Resume Checker",
+  title: "Resume",
 };
 
 const CATEGORY_LABEL: Record<CheckCategory, string> = {

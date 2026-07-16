@@ -1,6 +1,5 @@
 import React from "react";
 import Link from "next/link";
-import { Github } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { AuthButton } from "@/components/AuthButton";
 import { CreditsNavBadge } from "@/components/CreditsNavBadge";
@@ -20,7 +19,7 @@ export async function Navbar() {
               </div>
               <span className="font-bold text-xl text-white">
                 <span className="font-bold">ATS</span>
-                <span className="font-normal">Checker</span>
+                <span className="font-normal">Buddy</span>
               </span>
             </Link>
           </div>
@@ -56,15 +55,6 @@ export async function Navbar() {
               </>
             )}
             <CreditsNavBadge />
-
-            <Link
-              href="https://github.com/mahfuzurrahman01"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 text-gray-300 hover:text-white transition-colors duration-200 group"
-            >
-              <Github className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
-            </Link>
 
             <AuthButton
               user={

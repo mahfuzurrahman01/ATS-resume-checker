@@ -2,7 +2,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { PricingClient } from "./PricingClient";
 
 export const metadata = {
-  title: "Pricing - ATS Resume Checker",
+  title: "Pricing",
+  description:
+    "Buy credits for ATS resume scans and job-match reports. One-time purchase, credits never expire.",
 };
 
 export default async function PricingPage() {

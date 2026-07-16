@@ -4,7 +4,7 @@ import { getResumeById } from "@/lib/db/resumes";
 import { MatchClient } from "./MatchClient";
 
 export const metadata = {
-  title: "Match to a Job - ATS Resume Checker",
+  title: "Match to a Job",
 };
 
 export default async function MatchPage({

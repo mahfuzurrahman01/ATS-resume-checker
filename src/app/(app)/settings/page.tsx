@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { DeleteAccountClient } from "./DeleteAccountClient";
 
 export const metadata = {
-  title: "Settings - ATS Resume Checker",
+  title: "Settings",
 };
 
 const REASON_LABEL: Record<string, string> = {

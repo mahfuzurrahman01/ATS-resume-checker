@@ -4,7 +4,7 @@ import { listResumesForUser } from "@/lib/db/resumes";
 import { ResumesListClient } from "./ResumesListClient";
 
 export const metadata = {
-  title: "My Resumes - ATS Resume Checker",
+  title: "My Resumes",
 };
 
 export default async function ResumesPage() {
