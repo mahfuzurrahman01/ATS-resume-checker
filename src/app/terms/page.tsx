@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const metadata = {
-  title: "Terms of Service - ATS Resume Checker",
+  title: "Terms of Service",
+  description: "The terms that govern your use of ATSBuddy.",
 };
 
 export default function TermsPage() {
@@ -20,7 +21,7 @@ export default function TermsPage() {
               What this service is
             </h2>
             <p>
-              ATS Resume Checker analyzes resumes for ATS compatibility and,
+              ATSBuddy analyzes resumes for ATS compatibility and,
               optionally, fit against a job description. It uses a mix of
               deterministic checks (the same file always scores the same)
               and AI-generated feedback (Google Gemini). It is a tool to help
@@ -38,7 +39,11 @@ export default function TermsPage() {
               free credits; scans and job matches each cost credits as shown
               before you use them. Credits do not expire. Paid credit packs
               (when available) are one-time purchases, not subscriptions,
-              unless clearly stated otherwise at checkout.
+              unless clearly stated otherwise at checkout. See our{" "}
+              <Link href="/refunds" className="underline">
+                Refund Policy
+              </Link>{" "}
+              for how purchases are handled.
             </p>
           </section>
 

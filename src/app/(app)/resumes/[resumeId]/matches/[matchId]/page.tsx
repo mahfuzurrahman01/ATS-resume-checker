@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 export const metadata = {
-  title: "Job Match - ATS Resume Checker",
+  title: "Job Match",
 };
 
 const VERDICT_LABEL: Record<string, string> = {

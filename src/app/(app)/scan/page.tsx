@@ -1,7 +1,7 @@
 import { ScanClient } from "./ScanClient";
 
 export const metadata = {
-  title: "Scan a Resume - ATS Resume Checker",
+  title: "Scan a Resume",
 };
 
 export default function ScanPage() {

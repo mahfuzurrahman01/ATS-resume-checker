@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ScanLine, Target, Sparkles } from "lucide-react";
+import { ArrowRight, ScanLine, Target, Sparkles, Github } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { SignInGate } from "@/components/SignInGate";
 import { Button } from "@/components/ui/button";
@@ -134,18 +134,63 @@ export default async function Home() {
         </Link>
       </div>
 
-      <footer className="text-center mt-20 text-gray-400 text-sm space-y-3">
-        <p className="bg-gray-900/50 backdrop-blur-sm rounded-full px-6 py-3 inline-block border border-gray-700/30">
+      <footer className="mt-20 border-t border-gray-800/60 pt-10 text-gray-400 text-sm">
+        <p className="bg-gray-900/50 backdrop-blur-sm rounded-full px-6 py-3 inline-block border border-gray-700/30 mx-auto mb-8 block w-fit text-center w-full">
           Your resume is stored privately in your account. You can delete it
           at any time.
         </p>
-        <div className="flex items-center justify-center gap-4 text-xs">
-          <Link href="/privacy" className="hover:text-gray-200">
-            Privacy Policy
-          </Link>
-          <Link href="/terms" className="hover:text-gray-200">
-            Terms of Service
-          </Link>
+
+        <div className="flex flex-wrap justify-center gap-x-16 gap-y-8 max-w-3xl mx-auto text-center">
+          <div>
+            <p className="text-gray-200 font-medium mb-2">Product</p>
+            <div className="flex flex-col items-center gap-2 text-xs">
+              <Link href="/pricing" className="underline underline-offset-2 hover:text-gray-200">
+                Pricing
+              </Link>
+              <Link href="/scan" className="underline underline-offset-2 hover:text-gray-200">
+                Scan a resume
+              </Link>
+            </div>
+          </div>
+          <div>
+            <p className="text-gray-200 font-medium mb-2">Company</p>
+            <div className="flex flex-col items-center gap-2 text-xs">
+              <Link href="/about" className="underline underline-offset-2 hover:text-gray-200">
+                About
+              </Link>
+              <Link href="/contact" className="underline underline-offset-2 hover:text-gray-200">
+                Contact
+              </Link>
+            </div>
+          </div>
+          <div>
+            <p className="text-gray-200 font-medium mb-2">Legal</p>
+            <div className="flex flex-col items-center gap-2 text-xs">
+              <Link href="/privacy" className="underline underline-offset-2 hover:text-gray-200">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="underline underline-offset-2 hover:text-gray-200">
+                Terms of Service
+              </Link>
+              <Link href="/refunds" className="underline underline-offset-2 hover:text-gray-200">
+                Refund Policy
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-2 mt-10 text-xs text-gray-500">
+          <span>ATSBuddy &copy; {new Date().getFullYear()}</span>
+          <span className="text-gray-700">&middot;</span>
+          <a
+            href="https://github.com/mahfuzurrahman01"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 hover:text-gray-300"
+          >
+            <Github className="h-3.5 w-3.5" />
+            Built by mahfuzurrahman01
+          </a>
         </div>
       </footer>
     </div>

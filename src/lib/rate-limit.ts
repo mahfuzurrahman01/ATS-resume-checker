@@ -162,6 +162,11 @@ const AUTH_CALLBACK_WINDOW: WindowSpec = {
   duration: "1 m",
 };
 
+const CONTACT_WINDOWS: WindowSpec[] = [
+  { label: "hourly", windowMs: 3_600_000, max: 5, duration: "1 h" },
+  { label: "daily", windowMs: 86_400_000, max: 15, duration: "1 d" },
+];
+
 /** POST /api/scans — 10/hour and 30/day, keyed by user_id. */
 export function checkScanRateLimit(userId: string): Promise<RateLimitResult> {
   return checkWindows("scan", userId, SCAN_WINDOWS);
@@ -180,4 +185,9 @@ export function checkGeneralRateLimit(userId: string): Promise<RateLimitResult> 
 /** Auth callback only — 10/minute, keyed by IP, to slow signup abuse. */
 export function checkAuthCallbackRateLimit(ip: string): Promise<RateLimitResult> {
   return checkWindows("auth-callback", ip, [AUTH_CALLBACK_WINDOW]);
+}
+
+/** POST /api/contact — 5/hour and 15/day, keyed by IP (no auth on this route). */
+export function checkContactRateLimit(ip: string): Promise<RateLimitResult> {
+  return checkWindows("contact", ip, CONTACT_WINDOWS);
 }

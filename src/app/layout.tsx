@@ -9,25 +9,36 @@ import { CreditsProvider } from "@/lib/credits-context";
 import { getCurrentUser, getUserCredits } from "@/lib/auth";
 const inter = Inter({ subsets: ["latin"] });
 
+const siteUrl = "https://www.atsbuddy.dev";
+
 export const metadata: Metadata = {
-  title: "ATS Resume Checker - AI-Powered Resume Optimization",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "ATSBuddy - AI-Powered ATS Resume Checker",
+    template: "%s | ATSBuddy",
+  },
   description:
-    "Get instant AI-powered feedback on your resume's ATS compatibility. Optimize your resume to pass through ATS filters.",
+    "Get instant AI-powered feedback on your resume's ATS compatibility. Optimize your resume to pass through ATS filters and match job descriptions.",
   keywords: [
     "ATS resume checker",
     "resume optimization",
     "applicant tracking system",
     "AI resume analysis",
+    "resume scanner",
+    "job match checker",
   ],
+  alternates: { canonical: "/" },
   openGraph: {
-    title: "ATS Resume Checker - AI-Powered Resume Optimization",
+    title: "ATSBuddy - AI-Powered ATS Resume Checker",
     description:
       "Get instant AI-powered feedback on your resume's ATS compatibility.",
     type: "website",
+    url: siteUrl,
+    siteName: "ATSBuddy",
   },
   twitter: {
     card: "summary_large_image",
-    title: "ATS Resume Checker",
+    title: "ATSBuddy",
     description:
       "Get instant AI-powered feedback on your resume's ATS compatibility.",
   },

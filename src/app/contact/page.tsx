@@ -6,8 +6,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Mail, MessageSquare, Phone, MapPin, Send } from "lucide-react";
+import { Mail, MessageSquare } from "lucide-react";
+import { ContactForm } from "./ContactForm";
+
+export const metadata = {
+  title: "Contact",
+  description: "Get in touch with the ATSBuddy team.",
+};
 
 export default function ContactPage() {
   return (
@@ -28,8 +33,7 @@ export default function ContactPage() {
               <CardHeader>
                 <CardTitle>Get in Touch</CardTitle>
                 <CardDescription>
-                  We&apos;re here to help with any questions about our ATS
-                  Resume Checker
+                  We&apos;re here to help with any questions about ATSBuddy
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -40,7 +44,7 @@ export default function ContactPage() {
                   <div>
                     <p className="font-medium">Email</p>
                     <p className="text-sm text-muted-foreground">
-                      support@atschecker.com
+                      support@atsbuddy.dev
                     </p>
                   </div>
                 </div>
@@ -50,58 +54,10 @@ export default function ContactPage() {
                     <MessageSquare className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">Live Chat</p>
+                    <p className="font-medium">Response time</p>
                     <p className="text-sm text-muted-foreground">
-                      Available 24/7
+                      We typically reply within 1-2 business days
                     </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                    <Phone className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Phone</p>
-                    <p className="text-sm text-muted-foreground">
-                      +1 (555) 123-4567
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                    <MapPin className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Address</p>
-                    <p className="text-sm text-muted-foreground">
-                      123 Innovation Drive
-                      <br />
-                      Tech City, TC 12345
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Business Hours</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Monday - Friday</span>
-                    <span className="font-medium">9:00 AM - 6:00 PM</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Saturday</span>
-                    <span className="font-medium">10:00 AM - 4:00 PM</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Sunday</span>
-                    <span className="font-medium">Closed</span>
                   </div>
                 </div>
               </CardContent>
@@ -118,88 +74,7 @@ export default function ContactPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      htmlFor="firstName"
-                      className="block text-sm font-medium mb-1"
-                    >
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-                      id="firstName"
-                      className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
-                      placeholder="John"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="lastName"
-                      className="block text-sm font-medium mb-1"
-                    >
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      id="lastName"
-                      className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
-                      placeholder="Doe"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-sm font-medium mb-1"
-                  >
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
-                    placeholder="john@example.com"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="subject"
-                    className="block text-sm font-medium mb-1"
-                  >
-                    Subject
-                  </label>
-                  <input
-                    type="text"
-                    id="subject"
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
-                    placeholder="How can we help?"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="message"
-                    className="block text-sm font-medium mb-1"
-                  >
-                    Message
-                  </label>
-                  <textarea
-                    id="message"
-                    rows={4}
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground resize-none"
-                    placeholder="Tell us about your inquiry..."
-                  />
-                </div>
-
-                <Button type="submit" className="w-full">
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Message
-                </Button>
-              </form>
+              <ContactForm />
             </CardContent>
           </Card>
         </div>
@@ -209,7 +84,7 @@ export default function ContactPage() {
           <CardHeader>
             <CardTitle>Frequently Asked Questions</CardTitle>
             <CardDescription>
-              Common questions about our ATS Resume Checker
+              Common questions about ATSBuddy
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -8,13 +8,19 @@ import {
 } from "@/components/ui/card";
 import { FileText, Target, Zap, Shield } from "lucide-react";
 
+export const metadata = {
+  title: "About",
+  description:
+    "Why ATSBuddy exists: a deterministic ATS score you can trust plus honest AI feedback on your resume.",
+};
+
 export default function AboutPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">About ATS Resume Checker</h1>
+          <h1 className="text-4xl font-bold mb-4">About ATSBuddy</h1>
           <p className="text-xl text-muted-foreground">
             Empowering job seekers with AI-powered resume optimization
           </p>

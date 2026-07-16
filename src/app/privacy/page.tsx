@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const metadata = {
-  title: "Privacy Policy - ATS Resume Checker",
+  title: "Privacy Policy",
+  description: "How ATSBuddy collects, stores, and protects your resume data.",
 };
 
 export default function PrivacyPage() {
