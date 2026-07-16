@@ -26,12 +26,6 @@ export async function Navbar() {
 
           {/* Right side */}
           <div className="flex items-center space-x-3">
-            <Link
-              href="/pricing"
-              className="hidden sm:inline text-sm text-gray-300 hover:text-white transition-colors"
-            >
-              Pricing
-            </Link>
             {user && (
               <>
                 <Link
