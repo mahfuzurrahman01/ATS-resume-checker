@@ -38,7 +38,7 @@ export default function AboutPage() {
             <p className="text-lg leading-relaxed">
               We believe every job seeker deserves to know whether their
               resume will actually get seen. ATSBuddy analyzes the resume you
-              already have and tells you exactly what's stopping it from
+              already have and tells you exactly what&apos;s stopping it from
               getting past Applicant Tracking Systems and into the hands of
               hiring managers.
             </p>
