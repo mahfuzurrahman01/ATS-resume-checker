@@ -14,9 +14,51 @@ export const metadata = {
   description: "Get in touch with the ATSBuddy team.",
 };
 
+const FAQ_ITEMS = [
+  {
+    question: "What is an ATS resume checker?",
+    answer:
+      "An ATS resume checker analyzes your resume the way an Applicant Tracking System (ATS) would — checking formatting, structure, and keywords — so you know if it'll actually reach a human recruiter before you apply.",
+  },
+  {
+    question: "How does the ATS analysis work?",
+    answer:
+      "Our AI analyzes your resume for ATS compatibility by checking formatting, keyword optimization, and structure. We provide a detailed score and specific recommendations for improvement.",
+  },
+  {
+    question: "Is ATSBuddy free?",
+    answer:
+      "You get 10 free credits when you sign up, enough to try both the ATS scan and job-match report. Additional credits are available in low-cost one-time packs — no subscription required.",
+  },
+  {
+    question: "Is my resume data secure?",
+    answer:
+      "Your resume is stored privately in your account so you can revisit your results, and it's never shared beyond what's needed to run the analysis. You can delete it anytime from Settings.",
+  },
+  {
+    question: "What file formats are supported?",
+    answer:
+      "We support PDF, DOC, and DOCX formats. For best results, we recommend using PDF format as it maintains formatting consistency.",
+  },
+];
+
 export default function ContactPage() {
+  const faqStructuredData = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQ_ITEMS.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: { "@type": "Answer", text: item.answer },
+    })),
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }}
+      />
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
@@ -44,7 +86,7 @@ export default function ContactPage() {
                   <div>
                     <p className="font-medium">Email</p>
                     <p className="text-sm text-muted-foreground">
-                      support@atsbuddy.dev
+                      mafuzur.rahman032@gmail.com
                     </p>
                   </div>
                 </div>
@@ -89,41 +131,24 @@ export default function ContactPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div>
-                <h4 className="font-semibold mb-2">
-                  How does the ATS analysis work?
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  Our AI analyzes your resume for ATS compatibility by checking
-                  formatting, keyword optimization, and structure. We provide a
-                  detailed score and specific recommendations for improvement.
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">
-                  Is my resume data secure?
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  Your resume is stored privately in your account so you can
-                  revisit your results, and it&apos;s never shared beyond what&apos;s
-                  needed to run the analysis. You can delete it anytime from
-                  Settings — see our{" "}
-                  <a href="/privacy" className="underline">
-                    Privacy Policy
-                  </a>
-                  .
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">
-                  What file formats are supported?
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  We support PDF, DOC, and DOCX formats. For best results, we
-                  recommend using PDF format as it maintains formatting
-                  consistency.
-                </p>
-              </div>
+              {FAQ_ITEMS.map((item) => (
+                <div key={item.question}>
+                  <h4 className="font-semibold mb-2">{item.question}</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {item.answer}
+                    {item.question === "Is my resume data secure?" && (
+                      <>
+                        {" "}
+                        See our{" "}
+                        <a href="/privacy" className="underline">
+                          Privacy Policy
+                        </a>
+                        .
+                      </>
+                    )}
+                  </p>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

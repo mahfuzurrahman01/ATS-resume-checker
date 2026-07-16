@@ -16,10 +16,10 @@ export default async function Home() {
       {/* Hero */}
       <div className="text-center mb-16">
         <h1 className="text-5xl font-bold mb-6">
-          <span className="text-white">Craft Perfect</span>
+          <span className="text-white">Is Your Resume</span>
           <br />
           <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Resumes for ATS
+            ATS Friendly?
           </span>
         </h1>
         <p className="text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed mb-8">
@@ -51,7 +51,7 @@ export default async function Home() {
             <div className="w-10 h-10 rounded-xl bg-blue-900/40 flex items-center justify-center">
               <ScanLine className="h-5 w-5 text-blue-400" />
             </div>
-            <h3 className="text-lg font-semibold text-white">Scan</h3>
+            <h2 className="text-lg font-semibold text-white">Scan</h2>
             <p className="text-sm text-gray-300">
               Upload your resume by itself. Get a deterministic 0-100 score,
               mechanical ATS checks, and AI feedback on your writing — the
@@ -64,7 +64,7 @@ export default async function Home() {
             <div className="w-10 h-10 rounded-xl bg-purple-900/40 flex items-center justify-center">
               <Target className="h-5 w-5 text-purple-400" />
             </div>
-            <h3 className="text-lg font-semibold text-white">Match</h3>
+            <h2 className="text-lg font-semibold text-white">Match</h2>
             <p className="text-sm text-gray-300">
               Paste a job description and see how well your resume actually
               fits — an honest verdict, missing must-have keywords, and
@@ -149,6 +149,9 @@ export default async function Home() {
               </Link>
               <Link href="/scan" className="underline underline-offset-2 hover:text-gray-200">
                 Scan a resume
+              </Link>
+              <Link href="/blog" className="underline underline-offset-2 hover:text-gray-200">
+                Guides
               </Link>
             </div>
           </div>
